@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 
 withDefaults(defineProps<{
-  activePage?: 'home' | 'oj' | 'sharing' | 'about' | 'milestone'
+  activePage?: 'home' | 'oj' | 'sharing' | 'about' | 'milestone' | 'author'
   showSearch?: boolean
 }>(), { activePage: 'home', showSearch: false })
 

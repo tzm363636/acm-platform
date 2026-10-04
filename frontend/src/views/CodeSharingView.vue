@@ -1,95 +1,24 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import Navbar from '../components/Navbar.vue'
 
-type Article = {
-  id: number
-  title: string
-  summary: string
-  category: string
-  tags: string[]
-  date: string
-  views: string
-  likes: number
-  comments: number
-  code?: string[]
-  featured?: boolean
-  wide?: boolean
-}
+import { articles, articleUrl } from '../data/articles'
 
 const categories = ['全部', '题解', '算法模板', '竞赛经验', '408笔记', 'C++']
-const hotTags = ['图论', 'DP', '数据结构', '数学', '搜索', '贪心', 'C++', '模板', '字符串', '动态规划', '最短路', '并查集', '树状数组']
+const hotTags = ['图论', 'DP', '数据结构', '搜索', 'C++', '模板', '字符串', '动态规划', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记']
 const columns = [
   { name: '算法模板库', description: '常用算法模板整理，开箱即用', category: '算法模板', icon: 'book', color: 'orange' },
   { name: '408 知识整理', description: '数据结构、计算机组成原理等', category: '408笔记', icon: 'file', color: 'blue' },
   { name: '竞赛经验总结', description: '比赛复盘、心态调整与成长记录', category: '竞赛经验', icon: 'trophy', color: 'purple' },
 ]
 
-const articles: Article[] = [
-  {
-    id: 1,
-    title: '最短路算法：Dijkstra 与堆优化详解',
-    summary: '从朴素 Dijkstra 到堆优化，详细讲解算法思想、复杂度分析与代码实现，附多道例题与模板，适合刷题与竞赛使用。',
-    category: '题解', tags: ['图论', '最短路', 'C++', '题解'], date: '2024-03-12', views: '12.4k', likes: 392, comments: 56, featured: true,
-    code: ['using P = pair<int,int>;', 'priority_queue<P,', '  vector<P>, greater<P>> q;', 'vector<int> dist(n, INF);', 'dist[s] = 0;', 'q.push({0, s});'],
-  },
-  {
-    id: 2,
-    title: '并查集（Disjoint Set Union）模板详解',
-    summary: '从基础实现到按秩合并、路径压缩，附典型例题与易错点分析，适用于多种图论与连通性问题。',
-    category: '算法模板', tags: ['数据结构', '并查集', '模板'], date: '2024-03-08', views: '8.2k', likes: 276, comments: 28,
-    code: ['int find(int x) {', '  return fa[x] == x ? x :', '    fa[x] = find(fa[x]);', '}'],
-  },
-  {
-    id: 3,
-    title: '背包问题全解析：01 / 完全 / 多重背包',
-    summary: '系统讲解背包问题的多种模型、状态转移方程与代码实现，例题讲解与思维拓展。',
-    category: '题解', tags: ['动态规划', '背包问题', '题解', 'DP'], date: '2024-03-05', views: '8.7k', likes: 198, comments: 16,
-    code: ['for (int i = 0; i < n; i++) {', '  for (int j = v; j >= w[i]; j--)', '    dp[j] = max(dp[j],', '      dp[j - w[i]] + val[i]);', '}'],
-  },
-  {
-    id: 4,
-    title: '树状数组（Fenwick）详解与模板',
-    summary: '从原理到实现，详细讲解单点修改、区间查询等典型操作，附模板与经典题目。',
-    category: '算法模板', tags: ['数据结构', '树状数组', '模板', 'C++'], date: '2024-02-28', views: '5.1k', likes: 143, comments: 12,
-    code: ['int lowbit(int x) {', '  return x & -x;', '}', 'void add(int x, int v) {', '  for (; x <= n; x += lowbit(x))', '    tr[x] += v;', '}'],
-  },
-  {
-    id: 5,
-    title: 'KMP 字符串匹配模板与例题',
-    summary: '详细讲解 KMP 算法的原理、next 数组求法与代码实现，附多道经典例题。',
-    category: '算法模板', tags: ['字符串', 'KMP', '模板'], date: '2024-02-20', views: '4.6k', likes: 128, comments: 10,
-    code: ['vector<int> nxt(m);', 'for (int i = 1, j = 0; i < m; i++) {', '  while (j && s[i] != s[j])', '    j = nxt[j - 1];', '  if (s[i] == s[j]) j++;', '  nxt[i] = j;', '}'],
-  },
-  {
-    id: 6,
-    title: 'ACM 竞赛复盘：从区域赛到省赛的成长之路',
-    summary: '记录一次 ACM 竞赛的完整备赛与参赛过程，包含心态调整、团队协作、题目分析与经验总结。',
-    category: '竞赛经验', tags: ['竞赛经验', 'ACM', '比赛总结', '成长'], date: '2024-02-20', views: '4.8k', likes: 167, comments: 24, wide: true,
-  },
-  {
-    id: 7,
-    title: '二分查找的边界：从模板到应用',
-    summary: '梳理左右边界的写法与常见陷阱，用几个简单例子理解二分答案。',
-    category: '算法模板', tags: ['搜索', '模板', 'C++'], date: '2024-02-15', views: '3.9k', likes: 95, comments: 8,
-    code: ['while (l < r) {', '  int mid = (l + r) >> 1;', '  if (check(mid)) r = mid;', '  else l = mid + 1;', '}'],
-  },
-  {
-    id: 8,
-    title: '408 笔记：数据结构核心知识点',
-    summary: '按照知识脉络整理线性表、树、图与排序，方便复习时快速回顾。',
-    category: '408笔记', tags: ['408笔记', '数据结构', '复习'], date: '2024-02-10', views: '3.2k', likes: 81, comments: 6,
-    code: ['线性表 · 栈与队列', '树与二叉树 · 图', '查找 · 排序', '时间复杂度 · 空间复杂度'],
-  },
-]
-
 const activeCategory = ref('全部')
-const searchInput = ref<HTMLInputElement | null>(null)
 const searchDraft = ref('')
 const searchTerm = ref('')
 const showMore = ref(false)
 const showAllTags = ref(false)
-const showAuthor = ref(false)
+const searchOpen = ref(false)
+const headerSearchInput = ref<HTMLInputElement | null>(null)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
 
 const isFiltering = computed(() => activeCategory.value !== '全部' || searchTerm.value !== '')
@@ -105,27 +34,25 @@ const visibleArticles = computed(() => isFiltering.value || showMore.value ? reg
 const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide))
 const visibleTags = computed(() => showAllTags.value ? hotTags : hotTags.slice(0, 10))
 
-function scrollToResults() {
-  document.getElementById('recommendations')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 function selectCategory(category: string) {
   activeCategory.value = category
   searchTerm.value = ''
   searchDraft.value = ''
   showMore.value = false
-  scrollToResults()
 }
 
 function submitSearch() {
   searchTerm.value = searchDraft.value.trim()
   activeCategory.value = '全部'
-  scrollToResults()
+  searchOpen.value = false
 }
 
-function focusSearch() {
-  searchInput.value?.focus()
-  document.getElementById('search')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+async function focusSearch() {
+  searchOpen.value = !searchOpen.value
+  if (searchOpen.value) {
+    await nextTick()
+    headerSearchInput.value?.focus({ preventScroll: true })
+  }
 }
 </script>
 
@@ -146,15 +73,19 @@ function focusSearch() {
 
   <div class="cs-page">
     <Navbar active-page="sharing" show-search @search="focusSearch" />
+    <form v-if="searchOpen" class="cs-search-popover" role="search" @submit.prevent="submitSearch">
+      <label for="header-article-search">搜索文章</label>
+      <div><input id="header-article-search" ref="headerSearchInput" v-model="searchDraft" type="search" placeholder="题解 / 模板 / 标签" /><button type="submit">搜索</button></div>
+    </form>
 
     <section class="cs-hero" aria-labelledby="page-title">
       <div class="cs-hero-inner">
         <div class="cs-hero-copy">
           <h1 id="page-title">代码分享<span class="cs-title-stroke" aria-hidden="true"></span></h1>
-          <p>算法题解、模板沉淀、竞赛经验与学习笔记</p>
+          <p>算法题解、模板沉淀、竞赛经验与学习笔记 <span v-if="isFiltering" class="cs-filter-count" role="status" aria-live="polite">{{ searchTerm || activeCategory }} · {{ filteredArticles.length }} 篇</span></p>
           <form id="search" class="cs-search" role="search" @submit.prevent="submitSearch">
             <svg class="cs-icon" aria-hidden="true"><use href="#icon-search"/></svg>
-            <input ref="searchInput" v-model="searchDraft" type="search" aria-label="搜索题解、模板或标签" placeholder="搜索题解 / 模板 / 标签" />
+            <input v-model="searchDraft" type="search" aria-label="搜索题解、模板或标签" placeholder="搜索题解 / 模板 / 标签" />
             <button type="submit" aria-label="提交搜索"><svg class="cs-icon" aria-hidden="true"><use href="#icon-arrow"/></svg></button>
           </form>
           <div class="cs-categories" aria-label="文章分类">
@@ -179,39 +110,39 @@ function focusSearch() {
 
         <div v-if="filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词或分类。</p><button type="button" @click="selectCategory('全部')">查看全部文章</button></div>
 
-        <article v-if="featuredArticle" class="cs-featured-card">
+        <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id)" :aria-label="`阅读文章：${featuredArticle.title}`">
           <div class="cs-code-preview cs-code-preview-dark">
-            <span class="cs-hot-badge">🔥 热门</span>
+            <span class="cs-hot-badge">精选</span>
             <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="cs-code-lines"><div v-for="(line, index) in featuredArticle.code" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
+            <div class="cs-code-lines"><div v-for="(line, index) in featuredArticle.preview" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
           </div>
           <div class="cs-featured-body">
             <h3>{{ featuredArticle.title }}</h3>
             <p>{{ featuredArticle.summary }}</p>
             <div class="cs-article-tags"><span v-for="tag in featuredArticle.tags" :key="tag">{{ tag }}</span></div>
-            <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> ACMer</span><span><svg class="cs-icon"><use href="#icon-calendar"/></svg> {{ featuredArticle.date }}</span><span><svg class="cs-icon"><use href="#icon-eye"/></svg> {{ featuredArticle.views }}</span><span><svg class="cs-icon"><use href="#icon-like"/></svg> {{ featuredArticle.likes }}</span><span><svg class="cs-icon"><use href="#icon-comment"/></svg> {{ featuredArticle.comments }}</span></div>
+            <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div>
           </div>
-        </article>
+        </a>
 
         <div v-if="visibleArticles.length" class="cs-article-grid">
-          <article v-for="article in visibleArticles" :key="article.id" class="cs-article-card">
+          <a v-for="article in visibleArticles" :key="article.id" class="cs-article-card" :href="articleUrl(article.id)" :aria-label="`阅读文章：${article.title}`">
             <div class="cs-code-preview cs-code-preview-light">
               <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-              <div class="cs-code-lines"><div v-for="(line, index) in article.code" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
+              <div class="cs-code-lines"><div v-for="(line, index) in article.preview" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
             </div>
             <div class="cs-article-body">
               <h3>{{ article.title }}</h3>
               <p>{{ article.summary }}</p>
               <div class="cs-article-tags"><span v-for="tag in article.tags.slice(0, 4)" :key="tag">{{ tag }}</span></div>
-              <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> ACMer</span><span><svg class="cs-icon"><use href="#icon-calendar"/></svg> {{ article.date }}</span><span><svg class="cs-icon"><use href="#icon-eye"/></svg> {{ article.views }}</span><span><svg class="cs-icon"><use href="#icon-like"/></svg> {{ article.likes }}</span><span><svg class="cs-icon"><use href="#icon-comment"/></svg> {{ article.comments }}</span></div>
+              <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div>
             </div>
-          </article>
+          </a>
         </div>
 
-        <article v-if="wideArticle" class="cs-wide-card">
+        <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id)" :aria-label="`阅读文章：${wideArticle.title}`">
           <img :src="mountainUrl" alt="登山者站在山峰上迎接日出" />
-          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> ACMer</span><span><svg class="cs-icon"><use href="#icon-calendar"/></svg> {{ wideArticle.date }}</span><span><svg class="cs-icon"><use href="#icon-eye"/></svg> {{ wideArticle.views }}</span><span><svg class="cs-icon"><use href="#icon-like"/></svg> {{ wideArticle.likes }}</span><span><svg class="cs-icon"><use href="#icon-comment"/></svg> {{ wideArticle.comments }}</span></div></div>
-        </article>
+          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div></div>
+        </a>
       </main>
 
       <aside class="cs-sidebar" aria-label="代码分享侧栏">
@@ -226,10 +157,9 @@ function focusSearch() {
         </section>
 
         <section class="cs-side-card cs-author-card">
-          <div class="cs-side-heading"><h2><span aria-hidden="true">♧</span> 关于作者</h2><button type="button" @click="showAuthor = !showAuthor">{{ showAuthor ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
-          <div class="cs-author-profile"><div class="cs-avatar" aria-hidden="true">&lt;/&gt;</div><div><h3>ACMer <span>Lv.5</span></h3><p>一个热爱算法与竞赛的开发者，分享题解、模板与成长经验。</p></div></div>
-          <div class="cs-author-stats"><div><strong>102</strong><span>文章</span></div><div><strong>12.4k</strong><span>总阅读</span></div><div><strong>892</strong><span>获赞</span></div></div>
-          <p v-if="showAuthor" class="cs-author-more">持续记录学习和竞赛路上的思考，欢迎一起交流。</p>
+          <div class="cs-side-heading"><h2><span aria-hidden="true">♧</span> 关于作者</h2><a class="cs-side-link" href="./author.html">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></a></div>
+          <div class="cs-author-profile"><div class="cs-avatar" aria-hidden="true">&lt;/&gt;</div><div><h3>田振民</h3><p>软件工程专业学生，热爱算法、编程与技术探索。</p></div></div>
+          <div class="cs-author-stats"><div><strong>{{ articles.length }}</strong><span>站内文章</span></div><div><strong>4</strong><span>内容分类</span></div></div>
         </section>
 
         <div class="cs-side-banner" :style="{ backgroundImage: `url(${mountainUrl})` }"><strong>在代码中<br />遇见更好的自己</strong><span aria-hidden="true"></span></div>
