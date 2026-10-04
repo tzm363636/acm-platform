@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 260" role="img" aria-label="日出时登山者站在山峰上">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#ffd5a7"/><stop offset=".48" stop-color="#f8b0a2"/><stop offset="1" stop-color="#a2bfd6"/></linearGradient>
+    <linearGradient id="mountain" x2="0" y2="1"><stop stop-color="#506b91"/><stop offset="1" stop-color="#213f65"/></linearGradient>
+    <linearGradient id="near" x2="0" y2="1"><stop stop-color="#284f6c"/><stop offset="1" stop-color="#0b2d42"/></linearGradient>
+  </defs>
+  <rect width="800" height="260" fill="url(#sky)"/>
+  <path d="M0 80c70-19 87 4 151-15s93 1 147-17 99-14 144-2 96-9 154-2 112-10 204-1v61H0Z" fill="#ffe1bb" opacity=".45"/>
+  <circle cx="625" cy="111" r="44" fill="#fff2c4" opacity=".95"/>
+  <path d="M0 181 102 106l44 37 77-72 87 90 66-77 78 87 80-65 72 61 90-95 104 115v73H0Z" fill="#90a1bc"/>
+  <path d="m0 209 94-72 48 30 81-80 87 94 69-84 76 88 77-57 73 56 90-95 105 108v63H0Z" fill="url(#mountain)"/>
+  <path d="m184 124 39-37 37 40-29-18-12 16-17-13Zm379 14 42-49 35 39-29-14-13 12-17-10Z" fill="#c7d6de" opacity=".72"/>
+  <path d="m0 236 134-45 91 30 118-49 73 38 106-68 62 57 58-25 158 39v47H0Z" fill="url(#near)"/>
+  <path d="M0 254 109 223l109 19 132-51 69 26 104-43 51 39 93-16 133 32v31H0Z" fill="#112e45"/>
+  <path d="M0 253h800v7H0Z" fill="#0c283f"/>
+  <g fill="#123448"><path d="m25 236 12-29 12 29Zm26 5 10-24 10 24Zm45-23 11-26 12 26Zm567 5 9-25 11 25Zm34 9 12-30 12 30Zm35-11 10-23 11 23Z"/><path d="M37 226v28m24-22v22m46-40v40m565-43v43m37-35v35m34-42v42" fill="none" stroke="#123448" stroke-width="4"/></g>
+  <g transform="translate(420 143)" fill="#0c2638"><circle cx="0" cy="-21" r="6"/><path d="m-4-15 13-2 7 24-12 5-9-18Z"/><path d="m7-8 17 10-3 5L5 0Zm-8 4-13 15-5-4L-6-12Zm9 14 7 29-6 1L-2 15Zm-8 3-10 30-6-2 8-36Z"/><path d="m-9-11-9 12v16h-9V-2l12-19Z" fill="#f2a04d"/></g>
+  <path d="M437 137v-56" stroke="#153147" stroke-width="3"/><path d="M439 82q17-8 33 1l-14 9-19-2Z" fill="#e95447"/>
+</svg>

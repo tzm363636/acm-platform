@@ -5,6 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   base: './',
   plugins: [vue(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      input: ['index.html', 'code-sharing.html'],
+    },
+  },
   server: {
     proxy: {
       '/api': 'http://127.0.0.1:8080',
