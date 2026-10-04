@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+withDefaults(defineProps<{
+  activePage?: 'home' | 'oj' | 'sharing' | 'about' | 'milestone'
+  showSearch?: boolean
+}>(), { activePage: 'home', showSearch: false })
+
+const emit = defineEmits<{ search: [] }>()
+const navItems = [
+  { label: '首页', href: './', page: 'home' },
+  { label: '在线评测', href: './oj.html', page: 'oj' },
+  { label: '代码分享', href: './code-sharing.html', page: 'sharing' },
+  { label: '网站介绍', href: './about.html', page: 'about' },
+  { label: '成长足迹', href: './milestone.html', page: 'milestone' },
+] as const
+
 const menuOpen = ref(false)
 const entryOpen = ref(false)
 
@@ -13,20 +27,19 @@ function closeMenus() {
 <template>
   <header class="site-header">
     <div class="container nav-inner">
-      <a class="brand" href="#home" aria-label="ACM Code Share，返回首页" @click="closeMenus">
+      <a class="brand" href="./" aria-label="ACM Code Share，返回首页" @click="closeMenus">
         <span class="brand-mark" aria-hidden="true">&lt;/&gt;</span>
         <span>ACM Code Share</span>
       </a>
 
       <nav class="desktop-nav" aria-label="主导航">
-        <a class="active" href="#home">首页</a>
-        <a href="#platform">平台入口</a>
-        <a href="#sharing">内容分享</a>
-        <a href="#about">网站介绍</a>
-        <a href="#milestone">成长足迹</a>
+        <a v-for="item in navItems" :key="item.page" :class="{ active: activePage === item.page }" :href="item.href" :aria-current="activePage === item.page ? 'page' : undefined">{{ item.label }}</a>
       </nav>
 
       <div class="nav-actions">
+        <button v-if="showSearch" class="nav-search-button" type="button" aria-label="搜索文章" @click="emit('search')">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="7.2"/><path d="m16.2 16.2 5 5"/></svg>
+        </button>
         <div class="entry-wrap">
           <button class="entry-button" type="button" :aria-expanded="entryOpen" aria-controls="entry-menu" @click="entryOpen = !entryOpen">
             进入平台 <span aria-hidden="true">⌄</span>
@@ -42,11 +55,7 @@ function closeMenus() {
       </div>
     </div>
     <nav v-if="menuOpen" id="mobile-menu" class="mobile-nav" aria-label="移动端导航">
-      <a href="#home" @click="closeMenus">首页</a>
-      <a href="#platform" @click="closeMenus">平台入口</a>
-      <a href="#sharing" @click="closeMenus">内容分享</a>
-      <a href="#about" @click="closeMenus">网站介绍</a>
-      <a href="#milestone" @click="closeMenus">成长足迹</a>
+      <a v-for="item in navItems" :key="item.page" :href="item.href" :aria-current="activePage === item.page ? 'page' : undefined" @click="closeMenus">{{ item.label }}</a>
     </nav>
   </header>
 </template>

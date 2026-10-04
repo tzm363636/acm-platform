@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import Navbar from '../components/Navbar.vue'
 
 type Article = {
   id: number
@@ -89,8 +90,6 @@ const searchTerm = ref('')
 const showMore = ref(false)
 const showAllTags = ref(false)
 const showAuthor = ref(false)
-const entryOpen = ref(false)
-const mobileOpen = ref(false)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
 
 const isFiltering = computed(() => activeCategory.value !== '全部' || searchTerm.value !== '')
@@ -146,32 +145,7 @@ function focusSearch() {
   </svg>
 
   <div class="cs-page">
-    <header class="cs-header">
-      <div class="cs-header-inner">
-        <a class="cs-brand" href="./" aria-label="ACM Code Share，返回首页"><span class="cs-brand-mark" aria-hidden="true">&lt;/&gt;</span><strong>ACM Code Share</strong></a>
-        <nav class="cs-nav" aria-label="主导航">
-          <a href="./">首页</a>
-          <a href="./#platform">平台入口</a>
-          <a class="active" href="./code-sharing.html" aria-current="page">代码分享</a>
-          <a href="./#about">网站介绍</a>
-          <a href="./#milestone">成长足迹</a>
-        </nav>
-        <div class="cs-header-actions">
-          <button class="cs-icon-button" type="button" aria-label="搜索文章" @click="focusSearch"><svg class="cs-icon"><use href="#icon-search"/></svg></button>
-          <div class="cs-entry-wrap">
-            <button class="cs-entry-button" type="button" :aria-expanded="entryOpen" aria-controls="cs-entry-menu" @click="entryOpen = !entryOpen">进入平台 <span aria-hidden="true">⌄</span></button>
-            <div v-if="entryOpen" id="cs-entry-menu" class="cs-entry-menu">
-              <a href="./oj.html">在线评测</a>
-              <a href="./code-sharing.html">代码分享</a>
-            </div>
-          </div>
-          <button class="cs-mobile-button" type="button" :aria-expanded="mobileOpen" aria-controls="cs-mobile-nav" aria-label="打开导航菜单" @click="mobileOpen = !mobileOpen">☰</button>
-        </div>
-      </div>
-      <nav v-if="mobileOpen" id="cs-mobile-nav" class="cs-mobile-nav" aria-label="移动端导航">
-        <a href="./">首页</a><a href="./#platform">平台入口</a><a href="./code-sharing.html" aria-current="page">代码分享</a><a href="./#about">网站介绍</a><a href="./#milestone">成长足迹</a>
-      </nav>
-    </header>
+    <Navbar active-page="sharing" show-search @search="focusSearch" />
 
     <section class="cs-hero" aria-labelledby="page-title">
       <div class="cs-hero-inner">

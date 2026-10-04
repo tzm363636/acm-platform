@@ -32,11 +32,15 @@ a { color: inherit; text-decoration: none; }
 .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 100%; gap: 28px; }
 .brand { display: inline-flex; align-items: center; gap: 10px; flex: none; font-size: 19px; font-weight: 800; letter-spacing: -.45px; white-space: nowrap; }
 .brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; color: white; background: linear-gradient(135deg, #e39827, #efb953); font: 800 12px/1 Consolas, "Courier New", monospace; box-shadow: 0 8px 22px rgba(220, 145, 38, .22); }
-.desktop-nav { display: flex; align-items: center; gap: clamp(18px, 2.4vw, 35px); font-size: 14px; color: #60748b; }
-.desktop-nav a { transition: color .2s ease; white-space: nowrap; }
+.desktop-nav { display: flex; align-items: center; align-self: stretch; gap: clamp(18px, 2.4vw, 35px); font-size: 14px; color: #60748b; }
+.desktop-nav a { display: flex; align-items: center; align-self: stretch; position: relative; transition: color .2s ease; white-space: nowrap; }
 .desktop-nav a:hover, .desktop-nav .active { color: var(--primary-orange-strong); }
 .desktop-nav .active { font-weight: 700; }
+.desktop-nav .active::after { content: ""; position: absolute; right: 25%; bottom: 10px; left: 25%; height: 2px; border-radius: 2px; background: #e89825; }
 .nav-actions { display: flex; align-items: center; gap: 12px; }
+.nav-search-button { display: grid; width: 40px; height: 40px; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: rgba(255,255,255,.7); color: var(--deep-blue); }
+.nav-search-button:hover { background: #fff4de; }
+.nav-search-button svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
 .entry-wrap { position: relative; }
 .entry-button { padding: 10px 15px; border: 1px solid #f2d49c; border-radius: 9px; background: rgba(255, 248, 232, .8); color: #775115; font-weight: 700; white-space: nowrap; transition: background .2s ease; }
 .entry-button:hover, .entry-button[aria-expanded="true"] { background: #fff0ce; }
