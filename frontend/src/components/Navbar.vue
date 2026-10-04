@@ -32,8 +32,8 @@ function closeMenus() {
             进入平台 <span aria-hidden="true">⌄</span>
           </button>
           <div v-if="entryOpen" id="entry-menu" class="entry-menu">
-            <a href="#oj" @click="closeMenus"><strong>在线评测</strong><small>查看 OJ 入口规划</small></a>
-            <a href="#share-card" @click="closeMenus"><strong>代码分享</strong><small>查看文章入口规划</small></a>
+            <a href="./oj.html" @click="closeMenus"><strong>在线评测</strong><small>进入 OJ 页面</small></a>
+            <a href="./code-sharing.html" @click="closeMenus"><strong>代码分享</strong><small>进入代码交流分享页面</small></a>
           </div>
         </div>
         <button class="mobile-toggle" type="button" :aria-expanded="menuOpen" aria-controls="mobile-menu" aria-label="切换导航菜单" @click="menuOpen = !menuOpen">
