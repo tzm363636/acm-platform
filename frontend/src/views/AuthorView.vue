@@ -2,14 +2,14 @@
 import { computed, ref } from 'vue'
 import Navbar from '../components/Navbar.vue'
 
+const avatarUrl = `${import.meta.env.BASE_URL}author-avatar.jpg`
 const directions = ['算法与数据结构', 'ACM / ICPC 竞赛', '计算机基础', '软件工程', '后端与 Web 开发', '人工智能探索']
 const journey = [
   { number: '01', title: '从职业高中出发', text: '从职高进入计算机应用技术专业，再通过专升本继续学习软件工程。三年里把专业学习放在首位，连续两个学年学测、综测成绩位列班级第一。' },
   { number: '02', title: '遇见算法竞赛', text: '从第一次做算法题，到系统训练搜索、动态规划、图论与数据结构。错误答案、超时和补题，让我学会认真拆解问题。' },
   { number: '03', title: '走向全国赛场', text: '参加 CCPC、蓝桥杯、团体程序设计天梯赛、码蹄杯等赛事，在限时建模、代码实现和团队配合中持续磨练。' },
-  { number: '04', title: '从参赛者到 ACM 社社长', text: '统筹策划 20 余场训练、竞赛宣讲和技术交流活动，参与校队训练和新成员培养。' },
-  { number: '05', title: '让技术服务更多人', text: '与团队研发并开放校内 OJ 平台，也走进社区开展少儿编程公益教学。技术的价值，在于真正被人使用。' },
-  { number: '06', title: '现在，继续向前', text: '继续学习软件工程和计算机基础，探索算法工程、系统研发与人工智能，把过程记录在这个网站。' },
+  { number: '04', title: '从参赛者到 ACM 社社长', text: '统筹策划几十场训练、竞赛宣讲和技术交流活动，参与校队训练和新成员培养。' },
+  { number: '05', title: '现在，继续向前', text: '继续学习软件工程和计算机基础，探索算法工程、系统研发与人工智能，把过程记录在这个网站。' },
 ]
 const methods = [
   { title: '精准练习', text: '聚焦薄弱知识点，归纳解题模板，复盘易错问题，而不只追求刷题数量。' },
@@ -37,7 +37,7 @@ const awards: Award[] = [
   { date: '2024.06', text: '获码蹄杯全国职业院校程序设计大赛省赛一等奖', group: '省级 / 赛区' },
   { date: '2025.04', text: '获蓝桥杯JAVA/c组浙江省一等奖', group: '省级 / 赛区' },
   { date: '2025.04', text: '获浙江省大学生程序设计竞赛一等奖', group: '省级 / 赛区' },
-  { date: '2024.11', text: '获第七届传智杯全国IT技能大赛一等奖', group: '国家级' },
+  { date: '2024.11', text: '获第七届传智杯全国IT技能大赛一等奖', group: '省级 / 赛区' },
   { date: '2024.04', text: '获团体程序设计天梯赛团体浙江省二等奖', group: '省级 / 赛区' },
   { date: '2024.04', text: '获浙江省大学生程序设计竞赛省二等奖', group: '省级 / 赛区' },
   { date: '2025.04', text: '获团体程序设计天梯赛团体浙江省二等奖', group: '省级 / 赛区' },
@@ -62,7 +62,7 @@ const visibleAwards = computed(() => activeAwardFilter.value === '全部' ? awar
           <div class="author-labels"><span>Software Engineering</span><span>Competitive Programming</span><span>Developer</span></div>
           <a class="author-primary-link" href="./code-sharing.html">阅读我的技术文章 <span aria-hidden="true">→</span></a>
         </div>
-        <div class="author-portrait" aria-label="田振民的文字头像"><div>田</div><p>写代码，解问题，<br />也记录一路走来的过程。</p></div>
+        <div class="author-portrait"><img :src="avatarUrl" alt="田振民的头像" width="162" height="162" /><p>写代码，解问题，<br />也记录一路走来的过程。</p></div>
       </div>
     </section>
 
@@ -88,23 +88,10 @@ const visibleAwards = computed(() => activeAwardFilter.value === '全部' ? awar
         <p>我参加过蓝桥杯、CCPC、码蹄杯、团体程序设计天梯赛等赛事。团队比赛也让我懂得，沟通、分工与配合和个人解题能力一样重要。具体荣誉按时间列在下方。</p>
       </section>
 
-      <section class="author-panel author-project-panel" aria-labelledby="project-title">
-        <div>
-          <span class="author-eyebrow">PROJECT IN PRACTICE</span>
-          <h2 id="project-title">深耕实践，让技术落地</h2>
-          <p>我与团队自主研发并对校内开放 OJ 平台，将练习、教学和竞赛串联起来。项目中，我们实现了代码查重、封榜回溯等功能。我参与了产品规划、前后端开发、运维优化和基于用户反馈的迭代，也由此开始从竞赛训练走向完整的软件工程实践。</p>
-        </div>
-        <div class="author-project-stats" aria-label="校内 OJ 项目数据">
-          <div><strong>1600+</strong><span>服务学生</span></div>
-          <div><strong>15 万+</strong><span>平台代码提交</span></div>
-          <div><strong>160 场</strong><span>公开训练赛</span></div>
-        </div>
-      </section>
-
       <section class="author-panel" aria-labelledby="community-title">
         <span class="author-eyebrow">COMMUNITY & SERVICE</span>
         <h2 id="community-title">躬身服务，聚力成长</h2>
-        <p>担任校 ACM 社社长期间，我统筹策划 20 余场专业训练、竞赛宣讲和技术交流活动，参与校队训练与新成员培养。除了社团工作，我还走进社区开展少儿编程公益教学，希望把所学用于帮助更多人接触编程。</p>
+        <p>担任校 ACM 社社长期间，我统筹策划几十场专业训练、竞赛宣讲和技术交流活动，参与校队训练与新成员培养。除了社团工作，我还走进社区开展少儿编程公益教学，希望把所学用于帮助更多人接触编程。</p>
         <p>这些经历让我更加重视组织协调、沟通与共情，也让我相信，一个好的学习社区需要清晰的资料、持续的训练和愿意互相帮助的人。</p>
       </section>
 

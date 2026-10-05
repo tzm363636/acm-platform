@@ -1,5 +1,6 @@
 export type ArticleSection = {
   heading: string
+  level?: 2 | 3 | 4
   paragraphs: string[]
   bullets?: string[]
   code?: string

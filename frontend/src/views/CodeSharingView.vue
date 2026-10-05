@@ -76,7 +76,11 @@ function selectCategory(category: string) {
 }
 
 function selectTag(tag: string) {
-  activeTag.value = activeTag.value === tag ? '' : tag
+  if (activeTag.value === tag) {
+    showAllArticles()
+    return
+  }
+  activeTag.value = tag
   showMore.value = false
   void scrollToResults()
 }

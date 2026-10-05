@@ -125,7 +125,6 @@ a { color: inherit; text-decoration: none; }
 .cs-side-heading h2 > .cs-icon { width: 19px; height: 19px; }
 .cs-hot-tags { display: flex; flex-wrap: wrap; gap: 7px 5px; }
 .cs-hot-tags button { min-height: 31px; padding: 4px 13px; border: 0; border-radius: 16px; font-size: 12px; font-weight: 700; }
-.cs-hot-tags button:nth-child(10) { margin-right: 160px; }
 .cs-hot-tags button:hover, .cs-hot-tags button.active { box-shadow: 0 0 0 2px currentColor inset; }
 .tag-color-0 { background: #fff0db; color: #e47c16; }.tag-color-1 { background: #ffecef; color: #ed4552; }.tag-color-2 { background: #e4f3ff; color: #2685d8; }.tag-color-3 { background: #fff3df; color: #d68614; }.tag-color-4 { background: #e4f8e9; color: #1a9d50; }.tag-color-5 { background: #f0e9ff; color: #8655d7; }
 .cs-columns-card { padding-bottom: 12px; }
@@ -180,7 +179,7 @@ a { color: inherit; text-decoration: none; }
   .cs-hero { height: auto; min-height: 265px; }.cs-hero-inner { display: block; width: calc(100% - 32px); padding: 27px 0 22px; }.cs-hero-art { display: none; }.cs-hero h1 { font-size: 45px; }.cs-title-stroke { top: 29px; }.cs-hero-copy > p { font-size: 15px; letter-spacing: 0; }.cs-search { height: 47px; }.cs-search input { font-size: 14px; }.cs-categories { flex-wrap: wrap; gap: 7px; }.cs-categories button { min-width: 0; height: 34px; padding: 0 12px; font-size: 12px; }
   .cs-content-grid { width: calc(100% - 20px); }.cs-results { padding: 0 8px 9px; }.cs-section-heading { min-height: 54px; }.cs-section-title { gap: 5px; }.cs-section-title h2 { font-size: 18px; }.cs-section-title p { display: none; }.cs-more-link { font-size: 11px; }
   .cs-featured-card { display: block; padding: 10px; }.cs-code-preview-dark { height: 140px; }.cs-featured-body { padding: 12px 3px 3px; }.cs-featured-body h3 { font-size: 17px; }.cs-featured-body > p { font-size: 13px; }.cs-article-card { display: flex; padding: 10px; }.cs-wide-card { display: block; }.cs-wide-card img { height: 140px; }.cs-wide-body { padding: 12px; }
-  .cs-sidebar { grid-template-columns: 1fr; }.cs-side-banner { height: 100px; }.cs-hot-tags button:nth-child(10) { margin-right: 0; }
+  .cs-sidebar { grid-template-columns: 1fr; }.cs-side-banner { height: 100px; }
 }
 @media (max-width: 380px) { .cs-page .entry-wrap { display: none; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
