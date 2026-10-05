@@ -8,6 +8,7 @@ import type { Submission } from './types'
 import StatusBadge from './StatusBadge.vue'
 import Sidebar from './Sidebar.vue'
 import ArticleCodeBlock from '../components/ArticleCodeBlock.vue'
+import OjSkeleton from './OjSkeleton.vue'
 
 const route = useRoute(); const id = String(route.params.id)
 const submission = ref<Submission>(); const loading = ref(true); const error = ref(''); const feedback = ref('')
@@ -22,10 +23,11 @@ async function copyId() { try { await navigator.clipboard.writeText(id); feedbac
 onMounted(() => load())
 </script>
 <template>
-  <div v-if="loading" class="oj-card oj-loading" role="status"><span class="oj-spinner"></span>正在加载提交详情…</div>
-  <section v-else-if="error" class="oj-card oj-empty" role="alert"><h1>提交详情加载失败</h1><p>{{ error }}</p><button class="oj-button primary" @click="load()">重试</button><RouterLink class="oj-button" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
+  <OjSkeleton v-if="loading && !submission" detail label="正在加载提交详情…" />
+  <section v-else-if="error && !submission" class="oj-card oj-empty" role="alert"><h1>提交详情加载失败</h1><p>{{ error }}</p><button class="oj-button primary" @click="load()">重试</button><RouterLink class="oj-button" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
   <section v-else-if="!submission" class="oj-card oj-empty"><h1>提交不存在</h1><p>未找到对应演示提交。本机记录不会自动同步到其他浏览器或设备。</p><RouterLink class="oj-button primary" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
   <template v-else>
+    <p class="oj-refresh-status" :role="error ? 'alert' : 'status'">{{ loading ? '正在刷新，保留当前详情…' : error }} <button v-if="error" class="oj-link-button" @click="load()">重试</button></p>
     <div class="oj-inline-links"><RouterLink :to="`/problem/${submission.problemId}`">← 返回题目</RouterLink><RouterLink :to="submissionsReturnUrl()">返回提交记录 →</RouterLink></div>
     <header class="oj-title"><h1>提交详情 / 评测结果</h1><p>本次演示提交的结果与代码快照 · 用户代码未执行</p></header>
     <section class="oj-card oj-verdict-summary"><div class="oj-verdict-large"><StatusBadge :verdict="submission.verdict" /><strong>{{ submission.verdict }}</strong><span>{{ submission.origin === 'fixture' ? '预置演示快照' : '本机演示提交' }}</span></div><dl><div><dt>提交编号</dt><dd class="oj-wrap-id">{{ submission.id }} <button class="oj-button small" aria-label="复制提交编号" @click="copyId">复制</button></dd></div><div><dt>题目</dt><dd><RouterLink :to="`/problem/${submission.problemId}`">{{ submission.problemId }} {{ problem?.title }}</RouterLink></dd></div><div><dt>提交者</dt><dd>{{ submission.user }}</dd></div><div><dt>语言 / 编译器版本</dt><dd>C++17 · 编译器未接入（未实际编译）</dd></div><div><dt>提交时间</dt><dd>{{ formatTime(submission.submittedAt) }}</dd></div><div><dt>评测完成时间</dt><dd>{{ formatTime(submission.finishedAt) }}</dd></div><div><dt>运行耗时（演示）</dt><dd>{{ submission.timeMs === null ? '—' : `${submission.timeMs} ms` }}</dd></div><div><dt>内存（演示）</dt><dd>{{ submission.memoryMB === null ? '—' : `${submission.memoryMB} MB` }}</dd></div></dl><p class="oj-feedback" role="status">{{ feedback }}</p></section>

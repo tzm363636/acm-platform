@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import UiIcon from '../components/UiIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Navbar from '../components/Navbar.vue'
+import { concealLeavingSurface } from '../composables/surfaceTransition'
 
 import { articles, articleUrl } from '../data/articles'
 
@@ -22,9 +24,12 @@ const searchTerm = ref(searchDraft.value.trim())
 const showMore = ref(initialParams.get('more') === '1')
 const showAllTags = ref(initialParams.get('tags') === 'all')
 const searchOpen = ref(false)
+const navbar = ref<InstanceType<typeof Navbar> | null>(null)
 const headerSearchInput = ref<HTMLInputElement | null>(null)
 const sidebar = ref<HTMLElement | null>(null)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
+const avatarUrl = `${import.meta.env.BASE_URL}author-avatar.jpg`
+let sidebarUpdate = 0
 
 const isFiltering = computed(() => activeCategory.value !== '全部' || activeTag.value !== '' || searchTerm.value !== '')
 const filteredArticles = computed(() => articles.filter((article) => {
@@ -39,6 +44,7 @@ const regularArticles = computed(() => filteredArticles.value.filter((article) =
 const visibleArticles = computed(() => isFiltering.value || showMore.value ? regularArticles.value : regularArticles.value.slice(0, 4))
 const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide))
 const visibleTags = computed(() => showAllTags.value ? hotTags : hotTags.slice(0, 10))
+const resultKey = computed(() => `${activeCategory.value}|${activeTag.value}|${searchTerm.value}|${showMore.value}`)
 const sharingQuery = computed(() => {
   const params = new URLSearchParams()
   if (activeCategory.value !== '全部') params.set('category', activeCategory.value)
@@ -69,7 +75,10 @@ onMounted(async () => {
     }
   } catch { /* Invalid or unavailable storage should not block the page. */ }
 })
-onBeforeUnmount(() => window.removeEventListener('pagehide', saveListPosition))
+function closeSearch() { searchOpen.value = false; navbar.value?.focusSearchTrigger() }
+function escapeSearch(event: KeyboardEvent) { if (event.key === 'Escape' && searchOpen.value) { closeSearch(); event.preventDefault() } }
+onMounted(() => document.addEventListener('keydown', escapeSearch))
+onBeforeUnmount(() => { window.removeEventListener('pagehide', saveListPosition); document.removeEventListener('keydown', escapeSearch) })
 
 function selectCategory(category: string) {
   activeCategory.value = category
@@ -88,11 +97,12 @@ function selectTag(tag: string) {
 }
 
 async function keepSidebarPosition(update: () => void) {
+  const version = ++sidebarUpdate
   const previousTop = sidebar.value?.getBoundingClientRect().top
   update()
   await nextTick()
   // On narrow screens the results sit above the sidebar; keep the clicked controls in place.
-  if (previousTop !== undefined && sidebar.value) {
+  if (version === sidebarUpdate && previousTop !== undefined && sidebar.value) {
     const change = sidebar.value.getBoundingClientRect().top - previousTop
     if (Math.abs(change) > 1) window.scrollBy({ top: change, behavior: 'instant' })
   }
@@ -118,11 +128,12 @@ function showAllArticles() {
 function submitSearch() {
   searchTerm.value = searchDraft.value.trim()
   showMore.value = false
-  searchOpen.value = false
+  if (searchOpen.value) closeSearch()
 }
 
 async function focusSearch() {
-  searchOpen.value = !searchOpen.value
+  if (searchOpen.value) { closeSearch(); return }
+  searchOpen.value = true
   if (searchOpen.value) {
     await nextTick()
     headerSearchInput.value?.focus({ preventScroll: true })
@@ -146,11 +157,11 @@ async function focusSearch() {
   </svg>
 
   <div class="cs-page">
-    <Navbar active-page="sharing" show-search @search="focusSearch" />
-    <form v-if="searchOpen" class="cs-search-popover" role="search" @submit.prevent="submitSearch">
+    <Navbar ref="navbar" active-page="sharing" show-search @search="focusSearch" @dismiss-search="searchOpen = false" />
+    <Transition name="surface" @before-leave="concealLeavingSurface"><form v-if="searchOpen" class="cs-search-popover" role="search" :inert="!searchOpen" :aria-hidden="!searchOpen" @submit.prevent="submitSearch">
       <label for="header-article-search">搜索文章</label>
       <div><input id="header-article-search" ref="headerSearchInput" v-model="searchDraft" type="search" placeholder="题解 / 模板 / 标签" /><button type="submit">搜索</button></div>
-    </form>
+    </form></Transition>
 
     <section class="cs-hero" aria-labelledby="page-title">
       <div class="cs-hero-inner">
@@ -178,10 +189,11 @@ async function focusSearch() {
     <div class="cs-content-grid">
       <main id="recommendations" class="cs-results">
         <div class="cs-section-heading">
-          <div class="cs-section-title"><span aria-hidden="true">🔥</span><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${filteredArticles.length} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
+          <div class="cs-section-title"><UiIcon name="spark" /><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${filteredArticles.length} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
           <button v-if="!isFiltering && regularArticles.length > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
         </div>
 
+        <div :key="resultKey" class="cs-results-content content-reveal">
         <div v-if="isFiltering" class="cs-active-filters" aria-label="已选筛选条件">
           <span class="cs-result-count" role="status" aria-live="polite">{{ filteredArticles.length }} 篇文章</span>
           <button v-if="activeCategory !== '全部'" type="button" :aria-label="`移除分类：${activeCategory}`" @click="selectCategory('全部')">{{ activeCategory }} <span aria-hidden="true">×</span></button>
@@ -225,11 +237,12 @@ async function focusSearch() {
           <img :src="mountainUrl" alt="登山者站在山峰上迎接日出" />
           <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div></div>
         </a>
+        </div>
       </main>
 
       <aside ref="sidebar" class="cs-sidebar" aria-label="代码分享侧栏">
         <section class="cs-side-card cs-tags-card">
-          <div class="cs-side-heading"><h2><span aria-hidden="true">🔥</span> 热门标签</h2><button type="button" @click="showAllTags = !showAllTags">{{ showAllTags ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
+          <div class="cs-side-heading"><h2><UiIcon name="spark" /> 热门标签</h2><button type="button" @click="showAllTags = !showAllTags">{{ showAllTags ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
           <div class="cs-hot-tags"><button v-for="(tag, index) in visibleTags" :key="tag" type="button" :class="[`tag-color-${index % 6}`, { active: activeTag === tag }]" :aria-pressed="activeTag === tag" @click="selectTag(tag)">{{ tag }}</button></div>
         </section>
 
@@ -239,8 +252,8 @@ async function focusSearch() {
         </section>
 
         <section class="cs-side-card cs-author-card">
-          <div class="cs-side-heading"><h2><span aria-hidden="true">♧</span> 关于作者</h2><a class="cs-side-link" href="./author.html">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></a></div>
-          <div class="cs-author-profile"><div class="cs-avatar" aria-hidden="true">&lt;/&gt;</div><div><h3>田振民</h3><p>软件工程专业学生，热爱算法、编程与技术探索。</p></div></div>
+          <div class="cs-side-heading"><h2><UiIcon name="user" /> 关于作者</h2><a class="cs-side-link" href="./author.html">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></a></div>
+          <div class="cs-author-profile"><img class="cs-avatar" :src="avatarUrl" alt="田振民的头像" width="68" height="68" /><div><h3>田振民</h3><p>软件工程专业学生，热爱算法、编程与技术探索。</p></div></div>
           <div class="cs-author-stats"><div><strong>{{ articles.length }}</strong><span>站内文章</span></div><div><strong>4</strong><span>内容分类</span></div></div>
         </section>
 

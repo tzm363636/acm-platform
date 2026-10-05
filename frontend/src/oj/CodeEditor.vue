@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UiIcon from '../components/UiIcon.vue'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { basicSetup } from 'codemirror'
 import { EditorState, Compartment } from '@codemirror/state'
@@ -46,10 +47,10 @@ onBeforeUnmount(() => { editor?.destroy(); window.removeEventListener('keydown',
       <label class="oj-language">语言<select aria-label="编程语言" value="cpp17"><option value="cpp17">C++17（演示编辑）</option><option disabled>Python 3（规划中）</option><option disabled>Java（规划中）</option></select></label>
       <label>字号<select v-model="fontSize" aria-label="编辑器字号"><option v-for="size in [12,14,16,18,20]" :key="size" :value="size">{{ size }}</option></select></label>
       <label class="oj-checkbox"><input v-model="wrap" type="checkbox" />自动换行</label>
-      <button class="oj-button small" @click="copyCode">▣ 复制代码</button>
-      <button class="oj-button small" @click="restore">↺ 恢复模板</button>
-      <button class="oj-button small danger" @click="reset">⊗ 重置代码</button>
-      <button class="oj-button small" :aria-pressed="fullscreen" :aria-label="fullscreen ? '退出全屏编辑' : '全屏编辑'" @click="fullscreen = !fullscreen">{{ fullscreen ? '↙ 退出全屏' : '⛶ 全屏' }}</button>
+      <button class="oj-button small" @click="copyCode"><UiIcon name="copy" /> 复制代码</button>
+      <button class="oj-button small" @click="restore"><UiIcon name="reset" /> 恢复模板</button>
+      <button class="oj-button small danger" @click="reset"><UiIcon name="trash" /> 重置代码</button>
+      <button class="oj-button small" :aria-pressed="fullscreen" :aria-label="fullscreen ? '退出全屏编辑' : '全屏编辑'" @click="fullscreen = !fullscreen"><UiIcon name="expand" /> {{ fullscreen ? '退出全屏' : '全屏' }}</button>
     </div>
     <div ref="host" class="oj-editor-host"></div>
     <div class="oj-editor-footnote"><span>Tab 缩进 · Shift+Tab 减少缩进 · Ctrl+Z 撤销 · Esc 退出全屏</span><span role="status">{{ feedback }}</span></div>

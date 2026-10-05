@@ -1,0 +1,183 @@
+/* Shared rhythm. :root scope preserves overrides when Vite extracts shared CSS before page CSS. */
+:root {
+  --motion-fast: 140ms;
+  --motion-panel: 180ms;
+  --motion-content: 180ms;
+  --motion-ease: cubic-bezier(.2, .7, .2, 1);
+  --radius-control: 8px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+  --shadow-card: 0 6px 22px rgb(25 55 85 / 5%);
+  --shadow-floating: 0 16px 40px rgb(25 55 85 / 13%);
+}
+:root .surface-enter-active { transition: opacity var(--motion-panel) var(--motion-ease), transform var(--motion-panel) var(--motion-ease); }
+:root .surface-leave-active { transition: opacity 120ms ease, transform 120ms ease; pointer-events: none; }
+:root .surface-enter-from, :root .surface-leave-to { opacity: 0; transform: translateY(-4px); }
+:root .entry-menu, :root .cs-search-popover { box-shadow: var(--shadow-floating); }
+:root .entry-button, :root .nav-search-button, :root .mobile-toggle, :root .button, :root .run-button, :root .cs-page button, :root .oj-page button, :root .author-award-filters button, :root .reading-code-toolbar button, :root .author-primary-link, :root .author-last-panel a {
+  transition: background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease), box-shadow var(--motion-fast) var(--motion-ease), transform var(--motion-fast) var(--motion-ease);
+}
+:root .entry-menu a, :root .mobile-nav a, :root .desktop-nav a, :root .reading-toc a { transition: color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+:root .entry-button span { display: inline-block; transition: transform var(--motion-fast) var(--motion-ease); }
+:root .entry-button[aria-expanded="true"] span { transform: rotate(180deg); }
+:root .mobile-toggle span { transition: transform var(--motion-panel) var(--motion-ease), opacity var(--motion-fast) ease; }
+:root .mobile-toggle[aria-expanded="true"] span:first-child { transform: translateY(6px) rotate(45deg); }
+:root .mobile-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+:root .mobile-toggle[aria-expanded="true"] span:last-child { transform: translateY(-6px) rotate(-45deg); }
+:root .button:active, :root .entry-button:active, :root .nav-search-button:active, :root .mobile-toggle:active, :root .cs-page button:enabled:active, :root .oj-page button:enabled:active, :root .author-award-filters button:enabled:active, :root .reading-code-toolbar button:enabled:active { transform: scale(.98); }
+:root .fade-up { animation-duration: 360ms; animation-timing-function: var(--motion-ease); }
+:root .hero-visual.fade-up { animation-delay: 60ms; }
+/* Consistent surfaces and readable secondary text without changing page structure. */
+:root .cs-results, :root .cs-side-card, :root .cs-featured-card, :root .cs-article-card, :root .cs-wide-card,
+:root .oj-card, :root .author-highlights > div, :root .author-panel, :root .feature-card { box-shadow: var(--shadow-card); }
+:root .cs-results, :root .cs-side-card, :root .cs-featured-card, :root .cs-article-card, :root .cs-wide-card, :root .oj-card, :root .author-highlights > div, :root .feature-card { border-radius: var(--radius-card); }
+:root .reading-article, :root .reading-empty, :root .author-panel, :root .author-portrait { border-radius: var(--radius-panel); }
+:root .reading-article, :root .author-portrait { box-shadow: 0 10px 32px rgb(25 55 85 / 6%); }
+:root .cs-categories button, :root .oj-button, :root .entry-button, :root .author-primary-link { border-radius: var(--radius-control); }
+:root .cs-sidebar { gap: 16px; }
+:root .cs-side-card, :root .cs-author-profile > div { min-width: 0; }
+:root .cs-column-list { grid-template-columns: minmax(0, 1fr); }
+:root .cs-column-list button { min-width: 0; }
+:root .cs-side-card { padding: 20px; }
+:root .cs-side-heading { margin-bottom: 16px; }
+:root .cs-hero::before { opacity: .25; }
+:root .hero-section::after { opacity: .65; }
+:root .cs-hero h1 { font-weight: 800; }
+:root .cs-hero-copy > p { font-weight: 400; letter-spacing: 0; }
+:root .cs-featured-body h3, :root .cs-article-body h3, :root .cs-wide-body h3 { font-weight: 700; line-height: 1.5; }
+:root .cs-featured-body > p, :root .cs-article-body p, :root .cs-wide-body p { line-height: 1.75; margin-top: 8px; }
+:root .cs-article-meta { color: #526c89; font-size: 12px; }
+:root .cs-article-body .cs-article-meta { margin-top: auto; padding-top: 16px; font-size: 12px; }
+:root .cs-featured-body .cs-article-meta { margin-top: auto; padding-top: 12px; }
+:root .cs-article-tags span { background: #edf3f8; color: #506984; font-weight: 500; }
+:root .cs-hot-tags button { background: #eef3f8; color: #526b85; font-weight: 500; min-height: 34px; }
+:root .cs-hot-tags button.active { background: #fff1dc; color: #93590f; box-shadow: 0 0 0 1.5px #cf8c28 inset; font-weight: 650; }
+:root .cs-categories button { font-weight: 600; }
+:root .cs-categories button.active { background: #efb24e; color: #342408; box-shadow: 0 3px 10px rgb(210 145 36 / 14%); }
+:root .cs-section-title > .ui-icon, :root .cs-side-heading .ui-icon { color: #bd791b; width: 20px; height: 20px; }
+:root .cs-author-profile p, :root .cs-column-text small, :root .cs-author-stats span { color: #526c89; }
+:root .cs-column-text strong { font-weight: 650; }
+:root .cs-search:focus-within { outline: 2px solid #348ecb; outline-offset: 2px; }
+:root .cs-search-popover input:focus { outline: 2px solid #348ecb; outline-offset: 1px; }
+:root .reading-header h1, :root .author-panel h2, :root .oj-detail-heading h1 { font-weight: 700; }
+:root .reading-body p, :root .reading-body li { font-size: 16px; line-height: 1.9; }
+:root .reading-body section + section { margin-top: 32px; }
+:root .reading-toc a, :root .reading-breadcrumb, :root .reading-footer { color: #526c89; }
+:root .oj-page .oj-muted, :root .oj-page label, :root .oj-detail-heading > p, :root .oj-verdict-summary dt { color: #526c89; }
+:root .oj-page .oj-button.primary { color: #292113 !important; }
+:root .oj-segmented .active, :root .oj-steps .reached span { color: #292113; }
+:root .oj-badge.tone-orange { color: #93590f; }
+:root .oj-nav a, :root .oj-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+:root .oj-editor-toolbar .oj-button { gap: 5px; }
+:root .oj-detail-heading > div:first-of-type { gap: 12px; }
+:root .author-labels span, :root .author-directions span { font-weight: 500; }
+:root .author-eyebrow { font-weight: 650; }
+:root .reading-code-toolbar button:disabled, :root .oj-button:disabled { transform: none; }
+@media (max-width: 650px) {
+  :root body { min-width: 0; }
+  :root .nav-inner { gap: 8px; }
+  :root .cs-sidebar { grid-template-columns: minmax(0, 1fr); }
+  :root .cs-hero h1 { font-size: 40px; }
+  :root .cs-title-stroke { top: 25px; }
+  :root .cs-categories button { font-size: 13px; }
+  :root .cs-content-grid { width: calc(100% - 24px); }
+  :root .cs-results { padding: 0 12px 12px; }
+  :root .cs-side-card { padding: 20px 16px; }
+  :root .cs-featured-body > p, :root .cs-article-body p, :root .cs-wide-body p { font-size: 14px; }
+  :root .cs-more-link, :root .cs-side-heading button, :root .cs-side-link, :root .cs-article-meta, :root .cs-article-body .cs-article-meta, :root .cs-wide-body .cs-article-meta, :root .cs-column-text small, :root .cs-author-profile p, :root .cs-author-stats span, :root .cs-footer { font-size: 13px; }
+  :root .cs-article-tags span, :root .cs-article-body .cs-article-tags span, :root .cs-hot-tags button { font-size: 12px; }
+  :root .cs-section-title h2 { font-size: 18px; }
+  :root .reading-header > p, :root .author-story, :root .author-panel p { font-size: 16px; }
+  :root .reading-body pre { font-size: 13px; }
+  :root .oj-page .oj-muted, :root .oj-page label, :root .oj-detail-heading > p, :root .oj-problem-cards p, :root .oj-problem-cards small, :root .oj-demo-banner, :root .oj-demo-banner small, :root .oj-verdict-summary dt, :root .oj-refresh-status, :root .oj-feedback { font-size: 13px; }
+  :root .oj-page .oj-nav a, :root .oj-page .oj-nav button { font-size: 13px; }
+  :root .oj-editor-toolbar .oj-button, :root .oj-editor-toolbar select, :root .oj-filters label > select, :root .oj-action-buttons .oj-button { font-size: 13px; }
+  :root .oj-output-tabs button { font-size: 12px; }
+  :root .oj-problem-cards article > div:first-child { flex-wrap: wrap; gap: 8px; }
+  :root .oj-editor-footnote { font-size: 12px; }
+  :root .oj-editor-footnote [role="status"] { min-height: 38px; }
+  :root .oj-segmented { width: 100%; }
+}
+:root .content-reveal { animation: content-in var(--motion-content) var(--motion-ease); }
+@keyframes content-in { from { opacity: .65; } to { opacity: 1; } }
+:root .cs-featured-card, :root .cs-article-card, :root .cs-wide-card { transition: transform var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) ease, box-shadow var(--motion-panel) ease; }
+:root .cs-featured-card:active, :root .cs-article-card:active, :root .cs-wide-card:active { transform: scale(.995); }
+:root .cs-avatar { object-fit: cover; border: 2px solid #fff; background: #edf3f8; }
+:root .reading-copy-status:empty { display: block; }
+:root .reading-body .reading-copy-status, :root .oj-detail-stack .reading-copy-status { min-height: 40px; line-height: 1.6; }
+:root .reading-code-toolbar button { min-width: 110px; }
+:root .oj-feedback { min-height: 40px; }
+:root .oj-editor-footnote { display: grid; grid-template-columns: 1fr; gap: 4px; }
+:root .oj-editor-footnote [role="status"] { min-height: 32px; line-height: 1.6; }
+:root .oj-refresh-status { min-height: 32px; margin: 0 0 8px; font-size: 13px; color: #526c88; }
+:root .oj-list-card .oj-refresh-status { padding-inline: 4px; }
+:root .oj-result-panel { min-height: 360px; }
+:root .oj-submission-progress p { min-height: 48px; }
+:root .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+:root .oj-skeleton { padding: 4px; }
+:root .oj-skeleton i { display: block; height: 12px; background: #e7edf3; border-radius: 6px; }
+:root .oj-skeleton-header, :root .oj-skeleton-row { display: grid; grid-template-columns: .7fr 2fr 1fr 1fr; align-items: center; gap: 24px; padding: 20px 10px; min-height: 56px; border-bottom: 1px solid #eef2f6; }
+:root .oj-skeleton-header { background: #f0f5fb; }
+:root .oj-skeleton-row i:nth-child(2) { max-width: 180px; }
+:root .oj-skeleton-detail { min-height: 650px; }
+:root .oj-skeleton-intro { display: grid; gap: 24px; padding-block: 25px 40px; }
+:root .oj-skeleton-intro i:first-child { height: 28px; width: 45%; }
+:root .oj-skeleton-intro i:last-child { width: 65%; }
+:root .oj-skeleton-panes { display: grid; grid-template-columns: .94fr 1.06fr; gap: 18px; }
+:root .oj-skeleton-panes > div { padding: 28px; border: 1px solid #e0e9f2; border-radius: var(--radius-card); background: #fff; min-height: 430px; display: flex; flex-direction: column; gap: 24px; }
+:root .oj-skeleton-panes i:nth-child(3n) { width: 65%; }
+@media (hover: hover) and (pointer: fine) {
+  :root .cs-featured-card:hover, :root .cs-article-card:hover, :root .cs-wide-card:hover { transform: translateY(-2px); }
+  :root .platform-card:hover { transform: translateY(-2px); }
+}
+@media (max-width: 1000px) {
+  :root .mobile-tab-problem #panel-problem, :root .mobile-tab-code #panel-code, :root .mobile-tab-result #panel-result { animation: content-in var(--motion-content) var(--motion-ease); }
+  :root .oj-skeleton-panes { grid-template-columns: 1fr; }
+  :root .oj-skeleton-header { display: none; }
+  :root .oj-skeleton-row { min-height: 174px; margin-bottom: 12px; border: 1px solid #e0e9f2; border-radius: 12px; padding: 20px; grid-template-columns: 1fr 2fr; gap: 20px; }
+}
+@media (max-width: 860px) {
+  :root .site-header .mobile-nav { position: absolute; top: 100%; left: 0; right: 0; max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; border-radius: 0 0 16px 16px; box-shadow: var(--shadow-floating); }
+}
+@media (hover: none), (pointer: coarse) {
+  :root .button:hover, :root .platform-card:hover { transform: none; }
+  :root .button:active { transform: scale(.98); }
+  :root .button-primary:hover { background: #e9a640; box-shadow: 0 12px 26px rgb(218 153 49 / 23%); }
+  :root .button-secondary:hover { background: rgb(255 255 255 / 48%); }
+  :root .platform-card:hover { box-shadow: 0 18px 42px rgb(45 81 109 / 9%); }
+  :root .entry-button:hover { background: rgb(255 248 232 / 80%); }
+  :root .entry-button[aria-expanded="true"] { background: #fff0ce; }
+  :root .nav-search-button:hover { background: rgb(255 255 255 / 70%); }
+  :root .entry-menu a:hover { background: transparent; }
+  :root .oj-button:hover { background: #fff; }
+  :root .oj-button.primary:hover { background: linear-gradient(120deg,#efaa38,#ed900d); }
+  :root .cs-featured-card:hover, :root .cs-article-card:hover, :root .cs-wide-card:hover { box-shadow: var(--shadow-card); border-color: #e0e8f0; }
+  :root .cs-categories button:hover:not(.active) { background: rgb(255 255 255 / 87%); color: #314d70; border-color: #edf0f4; box-shadow: 0 6px 15px rgb(89 110 134 / 6%); }
+  :root .cs-hot-tags button:hover:not(.active) { box-shadow: none; }
+  :root .cs-column-list button:hover { background: #fff; border-color: #edf1f5; }
+  :root .cs-search button:hover { background: linear-gradient(135deg,#ff9825,#ffb340); }
+  :root .cs-active-filters button:hover { border-color: #efd6aa; }
+  :root .cs-active-filters .cs-clear-filters:hover { border-color: transparent; }
+  :root .cs-more-link:hover, :root .cs-side-heading button:hover, :root .cs-side-link:hover { color: #567093; }
+  :root .run-button:hover { background: #edab48; }
+  :root .card-link:hover { color: #bd7618; }
+  :root .site-footer a:hover, :root .reading-breadcrumb a:hover, :root .reading-footer a:hover, :root .reading-empty a:hover { color: inherit; }
+  :root .reading-author:hover { color: #c78425; }
+  :root .reading-toc a:hover:not(.active) { color: #526c89; background: transparent; }
+  :root .reading-page .reading-code-toolbar button:hover { border-color: #526a80; color: #f0f7fc; }
+  :root .author-award-filters button:hover:not(.active):not(:focus-visible) { border-color: #e5eaf0; color: #4d6882; }
+  :root .author-primary-link:hover { background: #eba639; }
+  :root .author-last-panel a:hover { background: transparent; }
+  :root .oj-page a:hover { text-decoration: none; }
+  :root .oj-page tbody tr:hover { background: transparent; }
+  :root .oj-button:disabled:hover { background: #fff; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .surface-enter-active, :root .surface-leave-active, :root .entry-button, :root .nav-search-button, :root .mobile-toggle, :root .mobile-toggle span, :root .entry-button span, :root .button, :root .run-button, :root .platform-card, :root .cs-page button, :root .oj-page button, :root .author-award-filters button, :root .reading-code-toolbar button, :root .author-primary-link, :root .author-last-panel a, :root .entry-menu a, :root .mobile-nav a, :root .desktop-nav a, :root .reading-toc a { transition: none; }
+  :root .surface-enter-from, :root .surface-leave-to { opacity: 1; transform: none; }
+  :root .fade-up { animation: none; }
+  :root .content-reveal, :root .mobile-tab-problem #panel-problem, :root .mobile-tab-code #panel-code, :root .mobile-tab-result #panel-result { animation: none; }
+  :root .cs-featured-card, :root .cs-article-card, :root .cs-wide-card { transition: none; }
+  :root .cs-featured-card:hover, :root .cs-article-card:hover, :root .cs-wide-card:hover, :root .cs-featured-card:active, :root .cs-article-card:active, :root .cs-wide-card:active { transform: none; }
+  :root .button:hover, :root .button:active, :root .platform-card:hover, :root .entry-button:active, :root .nav-search-button:active, :root .mobile-toggle:active, :root .cs-page button:enabled:active, :root .oj-page button:enabled:active, :root .author-award-filters button:enabled:active, :root .reading-code-toolbar button:enabled:active { transform: none; }
+}

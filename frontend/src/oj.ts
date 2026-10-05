@@ -3,6 +3,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import OjApp from './oj/OjApp.vue'
 import './styles/main.css'
 import './styles/oj.css'
+import './styles/experience.css'
 
 const router = createRouter({
   history: createWebHashHistory(),
