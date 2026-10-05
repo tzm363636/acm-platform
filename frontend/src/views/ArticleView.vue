@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import ArticleCodeBlock from '../components/ArticleCodeBlock.vue'
-import { articles } from '../data/articles'
+import { articles, type Article } from '../data/articles'
+import { databaseMode, getData } from '../api/database'
 import { useArticleReading } from '../composables/useArticleReading'
 
 const readingBody = ref<HTMLElement | null>(null)
@@ -13,7 +14,11 @@ const params = new URLSearchParams(window.location.search)
 const id = Number(params.get('id'))
 const fromQuery = new URLSearchParams(params.get('from') || '').toString()
 const returnUrl = `./code-sharing.html${fromQuery ? `?${fromQuery}` : ''}`
-const article = computed(() => articles.find((item) => item.id === id))
+const fetched = ref<Article>();const loading=ref(databaseMode);const error=ref('')
+const article = computed(() => databaseMode ? fetched.value : articles.find((item) => item.id === id))
+async function load(){loading.value=true;error.value='';try{fetched.value=await getData<Article>(`/articles/${id}`)}catch(e){error.value=(e as Error).message}finally{loading.value=false}}
+onMounted(()=>{if(databaseMode)void load()})
+watch(article,value=>{document.title=value?`${value.title} · ACM Code Share`:'文章未找到 · ACM Code Share'})
 document.title = article.value ? `${article.value.title} · ACM Code Share` : '文章未找到 · ACM Code Share'
 </script>
 
@@ -50,7 +55,7 @@ document.title = article.value ? `${article.value.title} · ACM Code Share` : '�
         </nav>
       </aside>
       </div>
-      <div v-else class="reading-empty"><h1>没有找到这篇文章</h1><p>链接可能有误，返回代码分享页面查看现有文章。</p><a :href="returnUrl">返回代码分享 →</a></div>
+      <div v-else class="reading-empty" :aria-busy="loading"><h1>{{ loading ? '正在加载文章…' : error || '没有找到这篇文章' }}</h1><p v-if="!loading">链接可能有误，或服务暂不可用；可以返回列表或重试。</p><button v-if="error" type="button" @click="load">重试</button><a :href="returnUrl">返回代码分享 →</a></div>
     </div>
   </main>
 </template>

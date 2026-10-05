@@ -1,11 +1,13 @@
 # ACM Code Share
 
-ACM / OJ 与代码分享个人平台的第一阶段：响应式首页和 Spring Boot 健康接口。当前没有真实判题、文章发布、账户或数据库；首页中的代码运行和文章都是演示。
+ACM / OJ 与代码分享个人平台：Vue 多页面前端、Spring Boot API，以及 MySQL / Aiven 数据库接入。真实登录、文章发布管理和判题引擎仍未接入；OJ 运行／提交明确为固定演示流程。
+
+数据库设计、TLS、迁移、环境变量和启动步骤见 [backend/DATABASE.md](backend/DATABASE.md)。默认无数据库 profile 时保留健康接口；数据库模式须先显式迁移，再启动服务。
 
 ## 目录
 
 - `frontend/`：Vue 3、TypeScript、Vite、Vue Router、Pinia、Axios、Tailwind CSS。首页样式主要在 `src/styles/main.css`，各区块在 `src/components/`。
-- `backend/`：Java 21、Spring Boot 3。当前只提供 `GET /api/health`。
+- `backend/`：Java 21、Spring Boot 3、Spring JDBC、MySQL、Flyway。提供健康、文章、题库、提交记录与开发演示接口。
 
 ## 本地运行
 
@@ -26,9 +28,9 @@ $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 mvn spring-boot:run
 ```
 
-当前电脑默认是 Java 17，因此上面的两行会让此终端使用项目 `.tools/` 中已准备好的 Java 21。换电脑时可安装自己的 JDK 21 并设置 `JAVA_HOME`；`.tools/` 不会提交到 Git。
+上面是无数据库的健康接口启动方式；数据库模式请按 `backend/DATABASE.md` 使用显式 check/migrate/serve。当前电脑默认是 Java 17，因此上面的两行会让此终端使用项目 `.tools/` 中已准备好的 Java 21。换电脑时可安装自己的 JDK 21 并设置 `JAVA_HOME`；`.tools/` 不会提交到 Git。
 
-前端地址以 Vite 输出为准。后端接口为 `http://127.0.0.1:8080/api/health`，返回 `{"code":200,"message":"ACM Platform Backend Running"}`。前端开发服务器已将 `/api` 代理到后端。
+前端地址以 Vite 输出为准。数据库 profile 的默认 API 端口为 8080，无数据库 profile 的默认端口为 10000，也可用 PORT 指定。`GET /api/health` 返回 `{"code":200,"message":"ACM Platform Backend Running"}`。前端开发服务器将 `/api` 代理到 8080 后端。
 
 ```powershell
 cd frontend

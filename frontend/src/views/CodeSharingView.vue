@@ -4,7 +4,8 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import { concealLeavingSurface } from '../composables/surfaceTransition'
 
-import { articles, articleUrl } from '../data/articles'
+import { articles as offlineArticles, articleUrl, type Article } from '../data/articles'
+import { databaseMode, getData, type ServerPage } from '../api/database'
 
 const categories = ['全部', '题解', '算法模板', '竞赛经验', '408笔记']
 const hotTags = ['图论', '动态规划', '数据结构', '搜索', 'C++', '模板', '字符串', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记']
@@ -30,9 +31,13 @@ const sidebar = ref<HTMLElement | null>(null)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
 const avatarUrl = `${import.meta.env.BASE_URL}author-avatar.jpg`
 let sidebarUpdate = 0
+const articles = ref<Article[]>(databaseMode ? [] : offlineArticles)
+const loading = ref(databaseMode);const loadError=ref('');const totalArticles=ref(offlineArticles.length)
+const regularTotal=ref(0);const filteredTotal=ref(0)
+let articleRequest=0;let preserveSidebar=false
 
 const isFiltering = computed(() => activeCategory.value !== '全部' || activeTag.value !== '' || searchTerm.value !== '')
-const filteredArticles = computed(() => articles.filter((article) => {
+const filteredArticles = computed(() => databaseMode ? articles.value : articles.value.filter((article) => {
   const categoryMatches = activeCategory.value === '全部' || article.category === activeCategory.value
   const tagMatches = !activeTag.value || article.tags.includes(activeTag.value)
   const search = searchTerm.value.toLocaleLowerCase() === 'dp' ? '动态规划' : searchTerm.value.toLocaleLowerCase()
@@ -54,6 +59,25 @@ const sharingQuery = computed(() => {
   if (showAllTags.value) params.set('tags', 'all')
   return params.toString()
 })
+const articleCount=computed(()=>databaseMode?filteredTotal.value:filteredArticles.value.length)
+const regularCount=computed(()=>databaseMode?regularTotal.value:regularArticles.value.length)
+async function loadArticles() {
+ const version=++articleRequest;loading.value=true;loadError.value=''
+ const q=searchTerm.value.toLocaleLowerCase()==='dp'?'动态规划':searchTerm.value
+ const params={q,category:activeCategory.value==='全部'?'':activeCategory.value,tag:activeTag.value,page:1}
+ try {
+  const [featured,regular,wide]=await Promise.all(['featured','regular','wide'].map(layout=>getData<ServerPage<Article>>('/articles',{...params,layout,size:layout==='regular'&&!isFiltering.value&&!showMore.value?4:100})))
+  if(version!==articleRequest)return
+  const previousTop=preserveSidebar?sidebar.value?.getBoundingClientRect().top:undefined
+  loading.value=false;articles.value=[...featured.items,...regular.items,...wide.items];regularTotal.value=regular.total;filteredTotal.value=featured.total+regular.total+wide.total
+  await nextTick()
+  if(version===articleRequest&&previousTop!==undefined&&sidebar.value){const change=sidebar.value.getBoundingClientRect().top-previousTop;if(Math.abs(change)>1)window.scrollBy({top:change,behavior:'instant'})}
+  preserveSidebar=false
+ }catch(e){if(version===articleRequest)loadError.value=(e as Error).message}
+ finally{if(version===articleRequest)loading.value=false}
+}
+watch(sharingQuery,()=>{if(databaseMode)void loadArticles()})
+onMounted(async()=>{if(databaseMode){void loadArticles();try{totalArticles.value=(await getData<ServerPage<Article>>('/articles',{size:1})).total}catch{ /* List error offers retry. */ }}})
 
 watch(sharingQuery, (query) => {
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
@@ -97,6 +121,7 @@ function selectTag(tag: string) {
 }
 
 async function keepSidebarPosition(update: () => void) {
+  if(databaseMode)preserveSidebar=true
   const version = ++sidebarUpdate
   const previousTop = sidebar.value?.getBoundingClientRect().top
   update()
@@ -189,20 +214,21 @@ async function focusSearch() {
     <div class="cs-content-grid">
       <main id="recommendations" class="cs-results">
         <div class="cs-section-heading">
-          <div class="cs-section-title"><UiIcon name="spark" /><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${filteredArticles.length} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
-          <button v-if="!isFiltering && regularArticles.length > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
+          <div class="cs-section-title"><UiIcon name="spark" /><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${articleCount} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
+          <button v-if="!isFiltering && regularCount > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
         </div>
 
         <div :key="resultKey" class="cs-results-content content-reveal">
         <div v-if="isFiltering" class="cs-active-filters" aria-label="已选筛选条件">
-          <span class="cs-result-count" role="status" aria-live="polite">{{ filteredArticles.length }} 篇文章</span>
+          <span class="cs-result-count" role="status" aria-live="polite">{{ articleCount }} 篇文章</span>
           <button v-if="activeCategory !== '全部'" type="button" :aria-label="`移除分类：${activeCategory}`" @click="selectCategory('全部')">{{ activeCategory }} <span aria-hidden="true">×</span></button>
           <button v-if="activeTag" type="button" :aria-label="`移除标签：${activeTag}`" @click="activeTag = ''">{{ activeTag }} <span aria-hidden="true">×</span></button>
           <button v-if="searchTerm" type="button" :aria-label="`移除搜索：${searchTerm}`" @click="searchTerm = ''; searchDraft = ''">关键词：{{ searchTerm }} <span aria-hidden="true">×</span></button>
           <button type="button" class="cs-clear-filters" @click="clearFilters">清除筛选</button>
         </div>
 
-        <div v-if="filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词，或移除部分筛选条件。</p><button type="button" @click="showAllArticles">查看全部文章</button></div>
+        <p v-if="loading || loadError" class="cs-result-count" :role="loadError ? 'alert' : 'status'">{{ loadError || '正在查询文章…' }} <button v-if="loadError" type="button" @click="loadArticles">重试</button></p>
+        <div v-if="!loading && !loadError && filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词，或移除部分筛选条件。</p><button type="button" @click="showAllArticles">查看全部文章</button></div>
 
         <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id, sharingQuery)" :aria-label="`阅读文章：${featuredArticle.title}`" @click="saveListPosition">
           <div class="cs-code-preview cs-code-preview-dark">
@@ -254,7 +280,7 @@ async function focusSearch() {
         <section class="cs-side-card cs-author-card">
           <div class="cs-side-heading"><h2><UiIcon name="user" /> 关于作者</h2><a class="cs-side-link" href="./author.html">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></a></div>
           <div class="cs-author-profile"><img class="cs-avatar" :src="avatarUrl" alt="田振民的头像" width="68" height="68" /><div><h3>田振民</h3><p>软件工程专业学生，热爱算法、编程与技术探索。</p></div></div>
-          <div class="cs-author-stats"><div><strong>{{ articles.length }}</strong><span>站内文章</span></div><div><strong>4</strong><span>内容分类</span></div></div>
+          <div class="cs-author-stats"><div><strong>{{ totalArticles }}</strong><span>站内文章</span></div><div><strong>4</strong><span>内容分类</span></div></div>
         </section>
 
         <div class="cs-side-banner" :style="{ backgroundImage: `url(${mountainUrl})` }"><strong>在代码中<br />遇见更好的自己</strong><span aria-hidden="true"></span></div>

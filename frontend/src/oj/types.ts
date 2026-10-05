@@ -6,12 +6,14 @@ export interface Problem {
   id: string; title: string; difficulty: '简单' | '中等' | '困难'; tags: string[]
   timeLimit: number; memoryLimit: number; source: string; description: string; input: string; output: string
   samples: { input: string; output: string; explanation: string }[]; constraints: string[]; template: string; articleIds: number[]
+  statistics?: { submissions:number; passRate:number|null }; personalStatus?: PersonalStatus
 }
 export interface Submission {
   id: string; problemId: string; user: string; language: 'cpp17'; verdict: Verdict; phase: Phase
   submittedAt: string; finishedAt?: string; timeMs: number | null; memoryMB: number | null
   code?: string; information: string; scenario: Exclude<Scenario, 'NetworkError'>; origin: 'fixture' | 'local'
   cases: { name: string; verdict: Verdict; timeMs: number | null; memoryMB: number | null }[]
+  problemTitle?: string; dataKind?: 'REAL'|'DEMO'; compilerVersion?: string|null
 }
 export interface RunResult {
   verdict: Verdict; output: string; expected?: string; information: string; timeMs: number | null; memoryMB: number | null; matchedSample: boolean

@@ -125,4 +125,5 @@ export function createDemoApi(storage?: StorageLike, delayMs = 180) {
 }
 let browserStorage: StorageLike | undefined
 try { browserStorage = window.localStorage } catch { /* The adapter falls back to session memory. */ }
-export const ojApi = createDemoApi(browserStorage)
+let offlineApi: ReturnType<typeof createDemoApi> | undefined
+export function getOfflineApi() { return offlineApi ??= createDemoApi(browserStorage) }

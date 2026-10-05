@@ -2,10 +2,11 @@
 import UiIcon from '../components/UiIcon.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ojApi } from './api'
+import { ojApi } from './adapter'
 import { enableDemoIdentity, listReturnUrl, submissionsReturnUrl, syncRecords, storageNotice } from './store'
 import { scenarios, type Problem, type RunResult, type Scenario, type Submission } from './types'
-import { articles, articleUrl } from '../data/articles'
+import { articles, articleUrl, type Article } from '../data/articles'
+import { databaseMode, getData } from '../api/database'
 import CodeEditor from './CodeEditor.vue'
 import StatusBadge from './StatusBadge.vue'
 import OjSkeleton from './OjSkeleton.vue'
@@ -21,7 +22,9 @@ const copyFeedback = ref(''); const draftStatus = ref('')
 const lastAction = ref<'run' | 'submit'>('run')
 const busy = computed(() => running.value || submitting.value)
 const emptyCode = computed(() => !code.value.trim())
-const related = computed(() => articles.filter(a => problem.value?.articleIds.includes(a.id)))
+const fetchedArticles=ref<Article[]>([])
+const related = computed(() => databaseMode ? fetchedArticles.value : articles.filter(a => problem.value?.articleIds.includes(a.id)))
+watch(problem, async value=>{if(databaseMode&&value){const responses=await Promise.allSettled(value.articleIds.map(id=>getData<Article>(`/articles/${id}`)));fetchedArticles.value=responses.filter((r):r is PromiseFulfilledResult<Article>=>r.status==='fulfilled').map(r=>r.value)}})
 const phases = ['waiting', 'compiling', 'judging', 'finished']; const phaseLabels = ['等待', '编译', '评测', '完成']
 const phaseIndex = computed(() => currentSubmission.value ? phases.indexOf(currentSubmission.value.phase) : -1)
 let ready = false

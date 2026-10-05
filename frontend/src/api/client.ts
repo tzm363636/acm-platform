@@ -1,4 +1,4 @@
 import axios from 'axios'
 
-// 为后续 REST API 预留单一入口；首页目前不依赖后端数据。
-export const apiClient = axios.create({ baseURL: '/api', timeout: 8000 })
+// Shared backend entry; credentials never enter the browser. Cloud queries can queue behind the small pool.
+export const apiClient = axios.create({ baseURL: '/api', timeout: 30000 })

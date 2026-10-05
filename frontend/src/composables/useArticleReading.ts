@@ -97,21 +97,36 @@ export function useArticleReading(body: Ref<HTMLElement | null>, toc: Ref<HTMLEl
   })
 
   onMounted(() => {
-    if (!body.value) return
     header = document.querySelector('.site-header')
-    refreshHeadings()
     resizeObserver = new ResizeObserver(queueUpdate)
-    resizeObserver.observe(body.value)
     if (header) resizeObserver.observe(header)
     if (toc.value) resizeObserver.observe(toc.value)
     mutationObserver = new MutationObserver(refreshHeadings)
-    mutationObserver.observe(body.value, { childList: true, subtree: true, characterData: true })
+    attachBody(body.value)
     window.addEventListener('scroll', queueUpdate, { passive: true })
     window.addEventListener('resize', queueUpdate)
+  })
+
+  function attachBody(element: HTMLElement | null, previous?: HTMLElement | null) {
+    mutationObserver?.disconnect()
+    if (previous) resizeObserver?.unobserve(previous)
+    if (!element) {
+      headings.value = []
+      headingElements = []
+      activeHeading.value = ''
+      progress.value = 0
+      return
+    }
+    refreshHeadings()
+    resizeObserver?.observe(element)
+    mutationObserver?.observe(element, { childList: true, subtree: true, characterData: true })
     let hashId = window.location.hash.slice(1)
     try { hashId = decodeURIComponent(hashId) } catch { /* Ignore a malformed URL fragment. */ }
     if (headings.value.some(heading => heading.id === hashId)) void goToHeading(hashId, false)
-  })
+  }
+
+  // API content may arrive after the component mounts.
+  watch(body, (element, previous) => attachBody(element, previous), { flush: 'post' })
 
   onBeforeUnmount(() => {
     window.removeEventListener('scroll', queueUpdate)

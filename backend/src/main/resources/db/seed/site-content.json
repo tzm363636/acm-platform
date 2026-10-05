@@ -1,0 +1,598 @@
+{
+  "articles": [
+    {
+      "id": 1,
+      "title": "最短路算法：Dijkstra 与堆优化详解",
+      "summary": "从非负权图上的松弛操作出发，实现堆优化 Dijkstra，并说明复杂度和常见错误。",
+      "category": "题解",
+      "tags": [
+        "图论",
+        "最短路",
+        "C++",
+        "题解"
+      ],
+      "featured": true,
+      "preview": [
+        "using State = pair<long long, int>;",
+        "priority_queue<State, vector<State>,",
+        "  greater<State>> pq;",
+        "dist[source] = 0;",
+        "pq.push({0, source});"
+      ],
+      "sections": [
+        {
+          "heading": "适用条件与核心思路",
+          "paragraphs": [
+            "Dijkstra 适用于边权非负的图。从起点距离为 0 开始，每次取出当前距离最小的顶点，再尝试用它更新相邻顶点的距离，这一步称为松弛。",
+            "优先队列中可能保留同一顶点的旧距离。取出状态时若距离与最新的 dist 不同，直接跳过。负权边会破坏“取出最小值即可确定最短路”的前提，不能直接使用该算法。"
+          ]
+        },
+        {
+          "heading": "C++ 实现",
+          "paragraphs": [
+            "图的顶点编号为 0 到 n−1。邻接表中的 pair 分别表示终点和非负边权；不可达点的距离保持为 INF。"
+          ],
+          "code": "#include <climits>\n#include <functional>\n#include <queue>\n#include <utility>\n#include <vector>\nusing namespace std;\n\nvector<long long> dijkstra(\n    const vector<vector<pair<int, int>>>& graph, int source) {\n    const long long INF = LLONG_MAX / 4;\n    vector<long long> dist(graph.size(), INF);\n    using State = pair<long long, int>; // 距离、顶点\n    priority_queue<State, vector<State>, greater<State>> pq;\n    dist[source] = 0;\n    pq.push({0, source});\n\n    while (!pq.empty()) {\n        auto [distance, u] = pq.top();\n        pq.pop();\n        if (distance != dist[u]) continue;\n        for (auto [v, weight] : graph[u]) {\n            if (dist[v] > distance + weight) {\n                dist[v] = distance + weight;\n                pq.push({dist[v], v});\n            }\n        }\n    }\n    return dist;\n}"
+        },
+        {
+          "heading": "验证与复杂度",
+          "paragraphs": [
+            "例如有边 0→1（权重 2）、0→2（权重 5）、1→2（权重 1），从 0 出发得到距离 0、2、3。最初到 2 的距离 5 会被更新为 3，队列里的旧状态 5 会被跳过。",
+            "使用邻接表和二叉堆时，时间复杂度通常写作 O((V+E) log V)，空间复杂度为 O(V+E)。距离可能累加超过 int 范围，因此使用 long long。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "并查集（Disjoint Set Union）模板详解",
+      "summary": "用路径压缩与按大小合并维护连通分量，快速判断两点是否属于同一集合。",
+      "category": "算法模板",
+      "tags": [
+        "数据结构",
+        "并查集",
+        "模板",
+        "C++"
+      ],
+      "preview": [
+        "int find(int x) {",
+        "  if (parent[x] != x)",
+        "    parent[x] = find(parent[x]);",
+        "  return parent[x];",
+        "}"
+      ],
+      "sections": [
+        {
+          "heading": "什么时候使用",
+          "paragraphs": [
+            "并查集维护一组互不相交的集合，支持查找元素所在集合的代表，以及合并两个集合。它适合动态增加连接、询问两点是否连通，例如无向图连通性和 Kruskal 最小生成树。",
+            "普通并查集不能直接删除边，也不能回答两点间的具体路径。"
+          ]
+        },
+        {
+          "heading": "路径压缩与按大小合并",
+          "paragraphs": [
+            "find 在返回代表元素时把沿途节点直接连接到根，缩短后续查询路径。unite 把较小的树接到较大的树上，避免树过深。"
+          ],
+          "code": "#include <algorithm>\n#include <numeric>\n#include <vector>\nusing namespace std;\n\nstruct DSU {\n    vector<int> parent, size;\n    explicit DSU(int n) : parent(n), size(n, 1) {\n        iota(parent.begin(), parent.end(), 0);\n    }\n    int find(int x) {\n        if (parent[x] != x) parent[x] = find(parent[x]);\n        return parent[x];\n    }\n    bool unite(int a, int b) {\n        a = find(a);\n        b = find(b);\n        if (a == b) return false;\n        if (size[a] < size[b]) swap(a, b);\n        parent[b] = a;\n        size[a] += size[b];\n        return true;\n    }\n    bool same(int a, int b) { return find(a) == find(b); }\n};"
+        },
+        {
+          "heading": "例子与复杂度",
+          "paragraphs": [
+            "对编号 0、1、2、3，先合并 0 与 1，再合并 1 与 2，则 same(0, 2) 为 true，same(0, 3) 为 false。",
+            "两种优化同时使用时，单次操作的均摊时间复杂度为 O(α(n))，α 是增长极慢的反阿克曼函数；空间复杂度为 O(n)。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "背包问题全解析：01 / 完全 / 多重背包",
+      "summary": "分清物品可选次数，用一维 DP 的循环方向处理 01 背包与完全背包。",
+      "category": "题解",
+      "tags": [
+        "动态规划",
+        "背包问题",
+        "题解",
+        "C++"
+      ],
+      "preview": [
+        "for (int i = 0; i < n; ++i)",
+        "  for (int c = capacity; c >= weight[i]; --c)",
+        "    dp[c] = max(dp[c],",
+        "      dp[c - weight[i]] + value[i]);"
+      ],
+      "sections": [
+        {
+          "heading": "状态与转移",
+          "paragraphs": [
+            "设 dp[c] 为容量不超过 c 时能获得的最大价值。处理重量 w、价值 v 的物品时，可以不选，也可以在剩余容量 c−w 的最优方案上加上 v，所以转移是 dp[c] = max(dp[c], dp[c−w] + v)。这里假设重量为正，空背包价值为 0。"
+          ]
+        },
+        {
+          "heading": "01 背包：每件最多一次",
+          "paragraphs": [
+            "容量必须从大到小遍历。这样读取 dp[c−w] 时，该位置仍是上一件物品处理完后的结果，同一件物品不会被重复选取。"
+          ],
+          "code": "#include <algorithm>\n#include <vector>\nusing namespace std;\n\nvector<long long> zeroOneKnapsack(\n    const vector<int>& weight, const vector<int>& value,\n    int capacity) {\n    vector<long long> dp(capacity + 1, 0);\n    for (size_t i = 0; i < weight.size(); ++i) {\n        for (int c = capacity; c >= weight[i]; --c) {\n            dp[c] = max(dp[c], dp[c - weight[i]] + value[i]);\n        }\n    }\n    return dp;\n}"
+        },
+        {
+          "heading": "完全背包与多重背包",
+          "paragraphs": [
+            "完全背包允许一件物品使用任意次，因此容量从小到大遍历，让当前物品本轮更新后的 dp[c−w] 继续参与转移。只需把上面代码的内层循环改为 for (int c = weight[i]; c <= capacity; ++c)。",
+            "多重背包给每种物品一个数量上限。数据量小时可逐件转成 01 背包；数量较大时可用二进制拆分把数量拆成 1、2、4……及剩余数量的若干组，再按 01 背包处理。"
+          ]
+        },
+        {
+          "heading": "手算检查",
+          "paragraphs": [
+            "容量为 4，只有一件重量 2、价值 3 的物品：01 背包答案为 3；完全背包可选两次，答案为 6。若两种写法得到相同结果，通常要检查容量循环方向。",
+            "一维数组的空间复杂度为 O(C)。01 背包和完全背包的时间复杂度均为 O(nC)。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "树状数组（Fenwick）详解与模板",
+      "summary": "利用 lowbit 维护前缀和，支持单点加值与区间求和。",
+      "category": "算法模板",
+      "tags": [
+        "数据结构",
+        "树状数组",
+        "模板",
+        "C++"
+      ],
+      "preview": [
+        "int lowbit(int x) { return x & -x; }",
+        "void add(int x, long long delta) {",
+        "  for (; x <= n; x += lowbit(x))",
+        "    tree[x] += delta;",
+        "}"
+      ],
+      "sections": [
+        {
+          "heading": "为什么要用 1 起始下标",
+          "paragraphs": [
+            "树状数组的 tree[x] 保存一个以 x 结尾、长度为 lowbit(x) 的区间和。例如 tree[6] 覆盖位置 5 到 6，因为 lowbit(6)=2。下标必须从 1 开始，否则 lowbit(0)=0 会使更新循环无法前进。"
+          ]
+        },
+        {
+          "heading": "单点更新与前缀查询",
+          "paragraphs": [
+            "更新位置 x 时不断跳到 x+lowbit(x)，让所有包含该位置的节点加上变化量；查询前缀时不断减去 lowbit(x)，把不重叠区间的和相加。"
+          ],
+          "code": "#include <vector>\nusing namespace std;\n\nstruct Fenwick {\n    int n;\n    vector<long long> tree;\n    explicit Fenwick(int n) : n(n), tree(n + 1, 0) {}\n    static int lowbit(int x) { return x & -x; }\n    void add(int x, long long delta) {\n        for (; x <= n; x += lowbit(x)) tree[x] += delta;\n    }\n    long long prefix(int x) const {\n        long long result = 0;\n        for (; x > 0; x -= lowbit(x)) result += tree[x];\n        return result;\n    }\n    long long range(int left, int right) const {\n        return prefix(right) - prefix(left - 1);\n    }\n};"
+        },
+        {
+          "heading": "例子与边界",
+          "paragraphs": [
+            "把数组 [2, 1, 3, 4] 依次用 add(i, a[i−1]) 插入后，range(2, 4)=1+3+4=8。若第三个数增加 5，调用 add(3, 5)，同一区间的和变成 13。",
+            "每次更新和查询都是 O(log n)，额外空间为 O(n)。这个模板处理“单点加值、区间求和”；区间加值等变体需要额外技巧。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "KMP 字符串匹配模板与例题",
+      "summary": "用前缀函数记录可复用的匹配长度，在线性时间内找出全部匹配位置。",
+      "category": "算法模板",
+      "tags": [
+        "字符串",
+        "KMP",
+        "模板",
+        "C++"
+      ],
+      "preview": [
+        "for (int i = 1, j = 0; i < m; ++i) {",
+        "  while (j && pattern[i] != pattern[j])",
+        "    j = pi[j - 1];",
+        "  if (pattern[i] == pattern[j]) ++j;",
+        "  pi[i] = j;",
+        "}"
+      ],
+      "sections": [
+        {
+          "heading": "前缀函数的含义",
+          "paragraphs": [
+            "pi[i] 表示模式串前 i+1 个字符中，相等的真前缀和真后缀的最大长度。失配时不必把文本指针倒退，而是让已匹配长度回退到 pi[j−1]，保留仍可能有效的前缀。"
+          ]
+        },
+        {
+          "heading": "查找所有匹配",
+          "paragraphs": [
+            "下列实现要求模式串非空，返回所有从 0 开始的匹配位置，包括重叠匹配。"
+          ],
+          "code": "#include <string>\n#include <vector>\nusing namespace std;\n\nvector<int> kmpFindAll(const string& text,\n                       const string& pattern) {\n    if (pattern.empty()) return {};\n    int m = static_cast<int>(pattern.size());\n    vector<int> pi(m, 0), positions;\n    for (int i = 1, j = 0; i < m; ++i) {\n        while (j > 0 && pattern[i] != pattern[j]) j = pi[j - 1];\n        if (pattern[i] == pattern[j]) ++j;\n        pi[i] = j;\n    }\n    for (int i = 0, j = 0; i < static_cast<int>(text.size()); ++i) {\n        while (j > 0 && text[i] != pattern[j]) j = pi[j - 1];\n        if (text[i] == pattern[j]) ++j;\n        if (j == m) {\n            positions.push_back(i - m + 1);\n            j = pi[j - 1];\n        }\n    }\n    return positions;\n}"
+        },
+        {
+          "heading": "例子与复杂度",
+          "paragraphs": [
+            "文本 ababa、模式 aba 的匹配起点是 0 和 2。找到第一个匹配后继续回退到 pi[2]=1，才能发现重叠的第二个匹配。",
+            "构建前缀函数需要 O(m)，扫描文本需要 O(n)，总时间 O(n+m)，额外空间 O(m)（不含输出结果）。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "ACM 竞赛复盘方法：从读题到赛后整理",
+      "summary": "一份可直接使用的赛后复盘清单：记录决策、定位错误，并把未完成题目转化为练习。",
+      "category": "竞赛经验",
+      "tags": [
+        "竞赛经验",
+        "ACM",
+        "比赛总结",
+        "成长"
+      ],
+      "wide": true,
+      "preview": [
+        "读题与分工",
+        "提交与反馈",
+        "赛后复现",
+        "知识点归档"
+      ],
+      "sections": [
+        {
+          "heading": "先记录过程，再评价结果",
+          "paragraphs": [
+            "复盘不是只看最终排名。先按时间顺序写下每道题何时读完、何时确定做法、何时首次提交，以及 AC、WA、TLE 等反馈。这样能区分知识欠缺、实现错误和时间分配问题。",
+            "团队赛还应记录分工与沟通节点：谁负责推导，谁负责实现，什么时候需要交换思路。这里提供的是通用方法，不指代任何真实比赛经历。"
+          ]
+        },
+        {
+          "heading": "把未通过的题目重新做一遍",
+          "paragraphs": [
+            "在不看题解的情况下复现失败提交，用最小反例确认问题。若是 WA，优先检查边界和数据类型；若是 TLE，估算实际输入规模与算法复杂度；若是 RE，检查数组越界、除零和递归深度。",
+            "确认原因后再阅读标准做法，并独立重写一次。只保存一份正确代码，往往难以记住当时为什么卡住。"
+          ]
+        },
+        {
+          "heading": "一份可复用的复盘记录",
+          "paragraphs": [
+            "每道题可以按下面的格式记录。下次遇到相同模式时，重点回看“错误原因”和“识别信号”。"
+          ],
+          "bullets": [
+            "题目与关键约束：输入规模、时间限制、特殊边界。",
+            "最初思路与复杂度：为什么选择这个算法？",
+            "提交反馈与最小反例：错误由哪一组数据触发？",
+            "正确做法与识别信号：什么条件提示应该使用这个方法？",
+            "复习计划：隔几天不看答案重新完成一次。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "二分查找的边界：从模板到应用",
+      "summary": "用左闭右开的区间寻找第一个不小于目标值的位置，避免边界和死循环。",
+      "category": "算法模板",
+      "tags": [
+        "搜索",
+        "模板",
+        "C++"
+      ],
+      "preview": [
+        "while (left < right) {",
+        "  int mid = left + (right - left) / 2;",
+        "  if (a[mid] >= target) right = mid;",
+        "  else left = mid + 1;",
+        "}"
+      ],
+      "sections": [
+        {
+          "heading": "明确区间含义",
+          "paragraphs": [
+            "假设数组已经按非递减顺序排列。要找第一个满足 a[i] >= target 的位置，可维护候选区间 [left, right)，初始为 [0, n)。当区间为空时，left 就是答案；若所有元素都小于目标值，答案为 n。"
+          ]
+        },
+        {
+          "heading": "左边界模板",
+          "paragraphs": [
+            "mid 属于区间内。当 a[mid] 满足条件时，mid 可能是答案，保留它并令 right=mid；否则丢弃 [left, mid]，令 left=mid+1。"
+          ],
+          "code": "#include <vector>\nusing namespace std;\n\nint lowerBoundIndex(const vector<int>& a, int target) {\n    int left = 0, right = static_cast<int>(a.size());\n    while (left < right) {\n        int mid = left + (right - left) / 2;\n        if (a[mid] >= target) right = mid;\n        else left = mid + 1;\n    }\n    return left;\n}"
+        },
+        {
+          "heading": "例子与复杂度",
+          "paragraphs": [
+            "在 [1, 2, 2, 4] 中搜索 2，返回 1；搜索 3，返回 3；搜索 5，返回 4。若要确认目标值确实存在，还需检查返回位置小于数组长度且 a[position] == target。",
+            "每次循环至少缩小一半区间，因此时间复杂度为 O(log n)，额外空间为 O(1)。不变量和循环边界要一起确定，不能只替换某一行比较符号。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "408 笔记：数据结构核心知识点",
+      "summary": "以线性结构、树、图和排序为线索，整理复习时容易混淆的性质与复杂度。",
+      "category": "408笔记",
+      "tags": [
+        "408笔记",
+        "数据结构",
+        "复习"
+      ],
+      "preview": [
+        "线性表 · 栈与队列",
+        "树与二叉树 · 图",
+        "查找 · 排序",
+        "时间复杂度 · 空间复杂度"
+      ],
+      "sections": [
+        {
+          "heading": "线性结构：存储方式决定代价",
+          "paragraphs": [
+            "顺序表支持 O(1) 随机访问，但在中间插入或删除通常需要移动元素，代价为 O(n)。链表可在已知节点位置时用 O(1) 完成局部插入或删除，但查找第 i 个元素仍需 O(n)。",
+            "栈遵循后进先出，队列遵循先进先出。用数组实现循环队列时，要明确队头、队尾指针的含义以及判空、判满规则。"
+          ]
+        },
+        {
+          "heading": "树与图：先确认遍历目标",
+          "paragraphs": [
+            "二叉树的前序、中序、后序遍历差别在于访问根节点的时机。二叉搜索树的中序遍历会得到非递减序列，但只有树保持平衡时，查找的最坏时间才可维持在 O(log n) 量级。",
+            "图的 BFS 借助队列按边数分层，可求无权图的最短路径；DFS 常用于连通性、环检测及回溯。遍历复杂度在邻接表存储下是 O(V+E)。"
+          ]
+        },
+        {
+          "heading": "排序：别只记平均时间",
+          "paragraphs": [
+            "归并排序时间复杂度为 O(n log n)，常见数组实现需要 O(n) 额外空间，且可以保持稳定性。快速排序平均 O(n log n)，但极端划分下会退化到 O(n²)；常见原地实现不稳定。",
+            "复习复杂度时，还要分清“额外空间”是否计入递归栈、算法是否稳定，以及题目数据是否存在大量重复值。"
+          ]
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1001",
+      "title": "A+B Problem",
+      "difficulty": "简单",
+      "tags": [
+        "基础",
+        "数学"
+      ],
+      "description": "给定两个整数 a 和 b，计算它们的和。",
+      "input": "一行两个整数 a、b，以空格分隔。",
+      "output": "输出一个整数，表示 a+b。",
+      "samples": [
+        {
+          "input": "3 5",
+          "output": "8",
+          "explanation": "3+5=8。"
+        },
+        {
+          "input": "-2 7",
+          "output": "5",
+          "explanation": "-2+7=5。"
+        }
+      ],
+      "constraints": [
+        "−10⁹ ≤ a,b ≤ 10⁹。建议使用 long long。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    long long a, b;\n    if (!(cin >> a >> b)) return 0;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": []
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1008",
+      "title": "数组元素和",
+      "difficulty": "简单",
+      "tags": [
+        "数组",
+        "基础"
+      ],
+      "description": "给定 n 个整数，求所有元素的和。",
+      "input": "第一行一个整数 n，第二行 n 个整数。",
+      "output": "输出所有元素之和。",
+      "samples": [
+        {
+          "input": "5\n1 2 3 4 5",
+          "output": "15",
+          "explanation": "1+2+3+4+5=15。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 10⁵",
+        "每个整数的绝对值不超过 10⁹，使用 long long。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    if (!(cin >> n)) return 0;\n    vector<long long> a(n);\n    for (auto &x : a) cin >> x;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        8
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1015",
+      "title": "排序",
+      "difficulty": "简单",
+      "tags": [
+        "排序",
+        "基础"
+      ],
+      "description": "将 n 个整数按非递减顺序排序。重复的数字需要全部保留。",
+      "input": "第一行 n，第二行 n 个整数。",
+      "output": "一行输出排序后的 n 个整数，以空格分隔。",
+      "samples": [
+        {
+          "input": "5\n4 1 3 1 2",
+          "output": "1 1 2 3 4",
+          "explanation": "按数值从小到大排列，保留两个 1。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 10⁵",
+        "每个整数的绝对值不超过 10⁹。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n;\n    if (!(cin >> n)) return 0;\n    vector<int> a(n);\n    for (auto &x : a) cin >> x;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        8
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1032",
+      "title": "最短路",
+      "difficulty": "中等",
+      "tags": [
+        "图论",
+        "最短路",
+        "Dijkstra"
+      ],
+      "description": "给定 n 个点、m 条边的有向图，边权均为非负整数。求起点 s 到所有点的最短距离。顶点编号为 1 到 n；不可达的点输出 −1。",
+      "input": "第一行三个整数 n、m、s。接下来 m 行，每行三个整数 u、v、w，表示从 u 到 v 的有向边，权重为 w。允许重边和自环。",
+      "output": "输出一行 n 个整数，第 i 个整数表示从 s 到 i 的最短距离。不可达时输出 −1，整数间用空格分隔。",
+      "samples": [
+        {
+          "input": "5 6 1\n1 2 2\n1 3 5\n2 3 1\n2 4 2\n3 4 3\n4 5 1",
+          "output": "0 2 3 4 5",
+          "explanation": "从 1 出发，到 3 的最短路为 1→2→3，到 5 为 1→2→4→5。"
+        },
+        {
+          "input": "3 1 2\n2 3 4",
+          "output": "-1 0 4",
+          "explanation": "起点为 2，不能到达顶点 1。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 10⁵，0 ≤ m ≤ 2×10⁵",
+        "1 ≤ s,u,v ≤ n，0 ≤ w ≤ 10⁹",
+        "距离累加可能超过 int 范围。建议采用堆优化 Dijkstra。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n, m, s;\n    if (!(cin >> n >> m >> s)) return 0;\n    // 顶点编号为 1 到 n；读取 m 条有向边。\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        1
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1048",
+      "title": "01 背包",
+      "difficulty": "中等",
+      "tags": [
+        "动态规划",
+        "背包"
+      ],
+      "description": "有 n 件物品，每件只能选择一次。背包容量为 C，求总体积不超过 C 时的最大总价值。",
+      "input": "第一行 n、C。接下来 n 行，每行物品体积 w 和价值 v。",
+      "output": "输出最大总价值；可以不选择任何物品。",
+      "samples": [
+        {
+          "input": "3 5\n2 3\n3 4\n4 5",
+          "output": "7",
+          "explanation": "选择前两件物品，总体积 5，总价值 7。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 1000，1 ≤ C ≤ 1000",
+        "1 ≤ w ≤ C，0 ≤ v ≤ 10⁶。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n, capacity;\n    if (!(cin >> n >> capacity)) return 0;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        3
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1060",
+      "title": "并查集",
+      "difficulty": "中等",
+      "tags": [
+        "并查集",
+        "数据结构"
+      ],
+      "description": "初始有 n 个独立元素。处理合并集合与连通性查询。",
+      "input": "第一行 n、q。接下来 q 行 op、u、v：op=1 合并 u、v 所在集合；op=2 查询两者是否同一集合。",
+      "output": "每个查询输出一行 Yes 或 No，大小写需一致。",
+      "samples": [
+        {
+          "input": "4 5\n2 1 2\n1 1 2\n2 1 2\n1 2 3\n2 1 3",
+          "output": "No\nYes\nYes",
+          "explanation": "第一次查询未连接；合并后，1、2、3 属于同一集合。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n,q ≤ 2×10⁵",
+        "1 ≤ u,v ≤ n。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n, q;\n    if (!(cin >> n >> q)) return 0;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        2
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1088",
+      "title": "KMP 字符串匹配",
+      "difficulty": "困难",
+      "tags": [
+        "字符串",
+        "KMP"
+      ],
+      "description": "统计模式串在文本中出现的次数，允许匹配位置重叠。",
+      "input": "第一行文本，第二行模式串；均为非空小写英文字母串。",
+      "output": "输出模式串出现的次数。",
+      "samples": [
+        {
+          "input": "aaaaa\naaa",
+          "output": "3",
+          "explanation": "匹配起始位置为 1、2、3，重叠的匹配也计入。"
+        }
+      ],
+      "constraints": [
+        "两个字符串长度均不超过 10⁶。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    string text, pattern;\n    if (!(cin >> text >> pattern)) return 0;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        5
+      ]
+    },
+    {
+      "timeLimit": 1000,
+      "memoryLimit": 256,
+      "source": "ACM Code Share 演示题库",
+      "id": "P1099",
+      "title": "最小生成树",
+      "difficulty": "困难",
+      "tags": [
+        "图论",
+        "最小生成树",
+        "贪心"
+      ],
+      "description": "给定 n 个点、m 条边的无向图，求连接所有点的最小生成树的边权总和。若无法连接所有点，输出 −1。",
+      "input": "第一行 n、m，接下来 m 行 u、v、w，表示无向边和边权。",
+      "output": "输出最小生成树边权总和，不存在则输出 −1。",
+      "samples": [
+        {
+          "input": "3 3\n1 2 1\n2 3 2\n1 3 4",
+          "output": "3",
+          "explanation": "选择权重为 1 和 2 的边，总权重为 3。"
+        }
+      ],
+      "constraints": [
+        "1 ≤ n ≤ 10⁵，0 ≤ m ≤ 2×10⁵",
+        "1 ≤ u,v ≤ n，0 ≤ w ≤ 10⁹。"
+      ],
+      "template": "#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    ios::sync_with_stdio(false);\n    cin.tie(nullptr);\n\n    int n, m;\n    if (!(cin >> n >> m)) return 0;\n    // TODO: 根据题目要求实现算法和输出。\n\n    return 0;\n}\n",
+      "articleIds": [
+        2
+      ]
+    }
+  ]
+}

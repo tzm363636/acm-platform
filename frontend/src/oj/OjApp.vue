@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import UiIcon from '../components/UiIcon.vue'
 import Navbar from '../components/Navbar.vue'
+import { databaseMode } from '../api/database'
 import { demoIdentity, disableDemoIdentity, enableDemoIdentity, listReturnUrl, storageNotice } from './store'
 </script>
 <template>
@@ -12,9 +13,15 @@ import { demoIdentity, disableDemoIdentity, enableDemoIdentity, listReturnUrl, s
         <RouterLink to="/submissions" :class="{ selected: $route.path.startsWith('/submission') }"><UiIcon name="list" /> 提交记录</RouterLink>
         <button disabled title="登录与账户系统尚未接入"><UiIcon name="user" /> 个人中心（预留）</button>
       </nav>
-      <div class="oj-demo-banner" role="note"><span>ⓘ</span><div><strong>演示模式</strong> · 登录功能与真实判题未接入。运行／提交仅展示固定模拟流程，不执行或判断用户代码。<small>演示记录仅保存在本机，与真实评测分开。{{ demoIdentity ? '当前身份：本机演示用户（非真实账户）。' : '个人状态需要登录；可启用本机演示身份体验。' }}</small></div><button class="oj-button small" @click="demoIdentity ? disableDemoIdentity() : enableDemoIdentity()">{{ demoIdentity ? '切换为未登录视图' : '启用演示身份' }}</button></div>
+      <div class="oj-demo-banner" role="note"><span>ⓘ</span><div><strong>演示模式</strong> · 登录功能与真实判题未接入。运行／提交仅展示固定模拟流程，不执行或判断用户代码。<small>{{ databaseMode ? '演示记录保存在数据库，与真实评测分开；草稿仍保存在本机。' : '演示记录仅保存在本机，与真实评测分开。' }}{{ demoIdentity ? '当前身份：本机演示用户（非真实账户）。' : '个人状态需要登录；可启用本机演示身份体验。' }}</small></div><button class="oj-button small" @click="demoIdentity ? disableDemoIdentity() : enableDemoIdentity()">{{ demoIdentity ? '切换为未登录视图' : '启用演示身份' }}</button></div>
       <p v-if="storageNotice" class="oj-warning" role="status">{{ storageNotice }}</p>
       <RouterView :key="$route.path" />
     </div>
   </main>
 </template>
+<style scoped>
+@media (max-width: 650px) {
+  .oj-demo-banner > div { flex: 1 1 calc(100% - 30px); min-width: 0; }
+  .oj-demo-banner > button { margin-left: 27px; }
+}
+</style>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ojApi } from './api'
+import { ojApi } from './adapter'
 import { problems } from './problems'
+import { databaseMode } from '../api/database'
+import type { Problem } from './types'
 import { formatTime, records, submissionsReturnUrl } from './store'
 import type { Submission } from './types'
 import StatusBadge from './StatusBadge.vue'
@@ -12,11 +14,13 @@ import OjSkeleton from './OjSkeleton.vue'
 
 const route = useRoute(); const id = String(route.params.id)
 const submission = ref<Submission>(); const loading = ref(true); const error = ref(''); const feedback = ref('')
-const problem = computed(() => problems.find(p => p.id === submission.value?.problemId))
+const fetchedProblem=ref<Problem>()
+const problem = computed(() => databaseMode ? fetchedProblem.value : problems.find(p => p.id === submission.value?.problemId))
+watch(submission,async value=>{if(databaseMode&&value)try{fetchedProblem.value=await ojApi.getProblem(value.problemId)}catch{ /* Detail remains usable when the related problem cannot load. */ }})
 const finished = computed(() => submission.value?.phase === 'finished')
 watch(records, updated => {
   const current = updated.find(record => record.id === id)
-  if (current && submission.value) submission.value = current
+  if (current && submission.value && !databaseMode) submission.value = current
 })
 async function load(fail = false) { loading.value = true; error.value = ''; try { submission.value = await ojApi.getSubmission(id, fail); document.title = `${submission.value ? '演示提交详情' : '提交不存在'} · ACM Code Share` } catch (e) { error.value = (e as Error).message } finally { loading.value = false } }
 async function copyId() { try { await navigator.clipboard.writeText(id); feedback.value = '提交编号已复制。' } catch { feedback.value = '复制失败，请手动选择编号复制。' } }
@@ -25,7 +29,7 @@ onMounted(() => load())
 <template>
   <OjSkeleton v-if="loading && !submission" detail label="正在加载提交详情…" />
   <section v-else-if="error && !submission" class="oj-card oj-empty" role="alert"><h1>提交详情加载失败</h1><p>{{ error }}</p><button class="oj-button primary" @click="load()">重试</button><RouterLink class="oj-button" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
-  <section v-else-if="!submission" class="oj-card oj-empty"><h1>提交不存在</h1><p>未找到对应演示提交。本机记录不会自动同步到其他浏览器或设备。</p><RouterLink class="oj-button primary" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
+  <section v-else-if="!submission" class="oj-card oj-empty"><h1>提交不存在</h1><p>未找到对应演示提交。请检查链接；其他会话的代码快照需要相应权限。</p><RouterLink class="oj-button primary" :to="submissionsReturnUrl()">返回提交记录</RouterLink></section>
   <template v-else>
     <p class="oj-refresh-status" :role="error ? 'alert' : 'status'">{{ loading ? '正在刷新，保留当前详情…' : error }} <button v-if="error" class="oj-link-button" @click="load()">重试</button></p>
     <div class="oj-inline-links"><RouterLink :to="`/problem/${submission.problemId}`">← 返回题目</RouterLink><RouterLink :to="submissionsReturnUrl()">返回提交记录 →</RouterLink></div>
