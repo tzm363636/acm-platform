@@ -23,6 +23,7 @@ const showMore = ref(initialParams.get('more') === '1')
 const showAllTags = ref(initialParams.get('tags') === 'all')
 const searchOpen = ref(false)
 const headerSearchInput = ref<HTMLInputElement | null>(null)
+const sidebar = ref<HTMLElement | null>(null)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
 
 const isFiltering = computed(() => activeCategory.value !== '全部' || activeTag.value !== '' || searchTerm.value !== '')
@@ -76,23 +77,29 @@ function selectCategory(category: string) {
 }
 
 function selectTag(tag: string) {
-  if (activeTag.value === tag) {
-    showAllArticles()
-    return
-  }
-  activeTag.value = tag
-  showMore.value = false
-  void scrollToResults()
+  void keepSidebarPosition(() => {
+    if (activeTag.value === tag) {
+      showAllArticles()
+    } else {
+      activeTag.value = tag
+      showMore.value = false
+    }
+  })
 }
 
-async function scrollToResults() {
+async function keepSidebarPosition(update: () => void) {
+  const previousTop = sidebar.value?.getBoundingClientRect().top
+  update()
   await nextTick()
-  document.getElementById('recommendations')?.scrollIntoView({ block: 'start', behavior: 'instant' })
+  // On narrow screens the results sit above the sidebar; keep the clicked controls in place.
+  if (previousTop !== undefined && sidebar.value) {
+    const change = sidebar.value.getBoundingClientRect().top - previousTop
+    if (Math.abs(change) > 1) window.scrollBy({ top: change, behavior: 'instant' })
+  }
 }
 
 function browseCategory(category: string) {
-  selectCategory(category)
-  void scrollToResults()
+  void keepSidebarPosition(() => selectCategory(category))
 }
 
 function clearFilters() {
@@ -106,7 +113,6 @@ function clearFilters() {
 function showAllArticles() {
   clearFilters()
   showMore.value = true
-  void scrollToResults()
 }
 
 function submitSearch() {
@@ -221,14 +227,14 @@ async function focusSearch() {
         </a>
       </main>
 
-      <aside class="cs-sidebar" aria-label="代码分享侧栏">
+      <aside ref="sidebar" class="cs-sidebar" aria-label="代码分享侧栏">
         <section class="cs-side-card cs-tags-card">
           <div class="cs-side-heading"><h2><span aria-hidden="true">🔥</span> 热门标签</h2><button type="button" @click="showAllTags = !showAllTags">{{ showAllTags ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
           <div class="cs-hot-tags"><button v-for="(tag, index) in visibleTags" :key="tag" type="button" :class="[`tag-color-${index % 6}`, { active: activeTag === tag }]" :aria-pressed="activeTag === tag" @click="selectTag(tag)">{{ tag }}</button></div>
         </section>
 
         <section class="cs-side-card cs-columns-card">
-          <div class="cs-side-heading"><h2><svg class="cs-icon"><use href="#icon-stack"/></svg> 分类精选</h2><button type="button" @click="showAllArticles">全部文章 <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
+          <div class="cs-side-heading"><h2><svg class="cs-icon"><use href="#icon-stack"/></svg> 分类精选</h2><button type="button" @click="keepSidebarPosition(showAllArticles)">全部文章 <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
           <div class="cs-column-list"><button v-for="column in columns" :key="column.name" type="button" @click="browseCategory(column.category)"><span class="cs-column-icon" :class="column.color"><svg class="cs-icon"><use :href="`#icon-${column.icon}`"/></svg></span><span class="cs-column-text"><strong>{{ column.name }}</strong><small>{{ column.description }}</small></span><span class="cs-column-arrow">›</span></button></div>
         </section>
 
