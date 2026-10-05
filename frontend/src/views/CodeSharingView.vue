@@ -1,49 +1,113 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Navbar from '../components/Navbar.vue'
 
 import { articles, articleUrl } from '../data/articles'
 
-const categories = ['全部', '题解', '算法模板', '竞赛经验', '408笔记', 'C++']
-const hotTags = ['图论', 'DP', '数据结构', '搜索', 'C++', '模板', '字符串', '动态规划', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记']
+const categories = ['全部', '题解', '算法模板', '竞赛经验', '408笔记']
+const hotTags = ['图论', '动态规划', '数据结构', '搜索', 'C++', '模板', '字符串', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记']
 const columns = [
   { name: '算法模板库', description: '常用算法模板整理，开箱即用', category: '算法模板', icon: 'book', color: 'orange' },
   { name: '408 知识整理', description: '数据结构、计算机组成原理等', category: '408笔记', icon: 'file', color: 'blue' },
   { name: '竞赛经验总结', description: '比赛复盘、心态调整与成长记录', category: '竞赛经验', icon: 'trophy', color: 'purple' },
 ]
 
-const activeCategory = ref('全部')
-const searchDraft = ref('')
-const searchTerm = ref('')
-const showMore = ref(false)
-const showAllTags = ref(false)
+const initialParams = new URLSearchParams(window.location.search)
+const initialCategory = initialParams.get('category') || '全部'
+const initialTag = initialParams.get('tag') === 'DP' ? '动态规划' : initialParams.get('tag') || ''
+const activeCategory = ref(categories.includes(initialCategory) ? initialCategory : '全部')
+const activeTag = ref(hotTags.includes(initialTag) ? initialTag : '')
+const searchDraft = ref(initialParams.get('q') || '')
+const searchTerm = ref(searchDraft.value.trim())
+const showMore = ref(initialParams.get('more') === '1')
+const showAllTags = ref(initialParams.get('tags') === 'all')
 const searchOpen = ref(false)
 const headerSearchInput = ref<HTMLInputElement | null>(null)
 const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
 
-const isFiltering = computed(() => activeCategory.value !== '全部' || searchTerm.value !== '')
+const isFiltering = computed(() => activeCategory.value !== '全部' || activeTag.value !== '' || searchTerm.value !== '')
 const filteredArticles = computed(() => articles.filter((article) => {
-  const categoryMatches = activeCategory.value === '全部' || article.category === activeCategory.value || article.tags.includes(activeCategory.value)
-  const search = searchTerm.value.toLocaleLowerCase()
+  const categoryMatches = activeCategory.value === '全部' || article.category === activeCategory.value
+  const tagMatches = !activeTag.value || article.tags.includes(activeTag.value)
+  const search = searchTerm.value.toLocaleLowerCase() === 'dp' ? '动态规划' : searchTerm.value.toLocaleLowerCase()
   const textMatches = !search || [article.title, article.summary, article.category, ...article.tags].join(' ').toLocaleLowerCase().includes(search)
-  return categoryMatches && textMatches
+  return categoryMatches && tagMatches && textMatches
 }))
 const featuredArticle = computed(() => filteredArticles.value.find((article) => article.featured))
 const regularArticles = computed(() => filteredArticles.value.filter((article) => !article.featured && !article.wide))
 const visibleArticles = computed(() => isFiltering.value || showMore.value ? regularArticles.value : regularArticles.value.slice(0, 4))
 const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide))
 const visibleTags = computed(() => showAllTags.value ? hotTags : hotTags.slice(0, 10))
+const sharingQuery = computed(() => {
+  const params = new URLSearchParams()
+  if (activeCategory.value !== '全部') params.set('category', activeCategory.value)
+  if (activeTag.value) params.set('tag', activeTag.value)
+  if (searchTerm.value) params.set('q', searchTerm.value)
+  if (showMore.value) params.set('more', '1')
+  if (showAllTags.value) params.set('tags', 'all')
+  return params.toString()
+})
+
+watch(sharingQuery, (query) => {
+  window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
+}, { immediate: true })
+
+function saveListPosition() {
+  try {
+    sessionStorage.setItem('acm-sharing-position', JSON.stringify({ query: sharingQuery.value, top: window.scrollY }))
+  } catch { /* Navigation still works when browser storage is unavailable. */ }
+}
+
+onMounted(async () => {
+  window.addEventListener('pagehide', saveListPosition)
+  await nextTick()
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('acm-sharing-position') || 'null')
+    if (saved?.query === sharingQuery.value && Number.isFinite(saved.top)) {
+      window.scrollTo({ top: saved.top, behavior: 'instant' })
+    }
+  } catch { /* Invalid or unavailable storage should not block the page. */ }
+})
+onBeforeUnmount(() => window.removeEventListener('pagehide', saveListPosition))
 
 function selectCategory(category: string) {
   activeCategory.value = category
+  showMore.value = false
+}
+
+function selectTag(tag: string) {
+  activeTag.value = activeTag.value === tag ? '' : tag
+  showMore.value = false
+  void scrollToResults()
+}
+
+async function scrollToResults() {
+  await nextTick()
+  document.getElementById('recommendations')?.scrollIntoView({ block: 'start', behavior: 'instant' })
+}
+
+function browseCategory(category: string) {
+  selectCategory(category)
+  void scrollToResults()
+}
+
+function clearFilters() {
+  activeCategory.value = '全部'
+  activeTag.value = ''
   searchTerm.value = ''
   searchDraft.value = ''
   showMore.value = false
 }
 
+function showAllArticles() {
+  clearFilters()
+  showMore.value = true
+  void scrollToResults()
+}
+
 function submitSearch() {
   searchTerm.value = searchDraft.value.trim()
-  activeCategory.value = '全部'
+  showMore.value = false
   searchOpen.value = false
 }
 
@@ -82,7 +146,7 @@ async function focusSearch() {
       <div class="cs-hero-inner">
         <div class="cs-hero-copy">
           <h1 id="page-title">代码分享<span class="cs-title-stroke" aria-hidden="true"></span></h1>
-          <p>算法题解、模板沉淀、竞赛经验与学习笔记 <span v-if="isFiltering" class="cs-filter-count" role="status" aria-live="polite">{{ searchTerm || activeCategory }} · {{ filteredArticles.length }} 篇</span></p>
+          <p>算法题解、模板沉淀、竞赛经验与学习笔记</p>
           <form id="search" class="cs-search" role="search" @submit.prevent="submitSearch">
             <svg class="cs-icon" aria-hidden="true"><use href="#icon-search"/></svg>
             <input v-model="searchDraft" type="search" aria-label="搜索题解、模板或标签" placeholder="搜索题解 / 模板 / 标签" />
@@ -105,12 +169,20 @@ async function focusSearch() {
       <main id="recommendations" class="cs-results">
         <div class="cs-section-heading">
           <div class="cs-section-title"><span aria-hidden="true">🔥</span><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${filteredArticles.length} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
-          <button v-if="!isFiltering && regularArticles.length > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
+          <button v-if="!isFiltering && regularArticles.length > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
         </div>
 
-        <div v-if="filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词或分类。</p><button type="button" @click="selectCategory('全部')">查看全部文章</button></div>
+        <div v-if="isFiltering" class="cs-active-filters" aria-label="已选筛选条件">
+          <span class="cs-result-count" role="status" aria-live="polite">{{ filteredArticles.length }} 篇文章</span>
+          <button v-if="activeCategory !== '全部'" type="button" :aria-label="`移除分类：${activeCategory}`" @click="selectCategory('全部')">{{ activeCategory }} <span aria-hidden="true">×</span></button>
+          <button v-if="activeTag" type="button" :aria-label="`移除标签：${activeTag}`" @click="activeTag = ''">{{ activeTag }} <span aria-hidden="true">×</span></button>
+          <button v-if="searchTerm" type="button" :aria-label="`移除搜索：${searchTerm}`" @click="searchTerm = ''; searchDraft = ''">关键词：{{ searchTerm }} <span aria-hidden="true">×</span></button>
+          <button type="button" class="cs-clear-filters" @click="clearFilters">清除筛选</button>
+        </div>
 
-        <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id)" :aria-label="`阅读文章：${featuredArticle.title}`">
+        <div v-if="filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词，或移除部分筛选条件。</p><button type="button" @click="showAllArticles">查看全部文章</button></div>
+
+        <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id, sharingQuery)" :aria-label="`阅读文章：${featuredArticle.title}`" @click="saveListPosition">
           <div class="cs-code-preview cs-code-preview-dark">
             <span class="cs-hot-badge">精选</span>
             <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -125,7 +197,7 @@ async function focusSearch() {
         </a>
 
         <div v-if="visibleArticles.length" class="cs-article-grid">
-          <a v-for="article in visibleArticles" :key="article.id" class="cs-article-card" :href="articleUrl(article.id)" :aria-label="`阅读文章：${article.title}`">
+          <a v-for="article in visibleArticles" :key="article.id" class="cs-article-card" :href="articleUrl(article.id, sharingQuery)" :aria-label="`阅读文章：${article.title}`" @click="saveListPosition">
             <div class="cs-code-preview cs-code-preview-light">
               <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
               <div class="cs-code-lines"><div v-for="(line, index) in article.preview" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
@@ -139,7 +211,7 @@ async function focusSearch() {
           </a>
         </div>
 
-        <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id)" :aria-label="`阅读文章：${wideArticle.title}`">
+        <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id, sharingQuery)" :aria-label="`阅读文章：${wideArticle.title}`" @click="saveListPosition">
           <img :src="mountainUrl" alt="登山者站在山峰上迎接日出" />
           <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div></div>
         </a>
@@ -148,12 +220,12 @@ async function focusSearch() {
       <aside class="cs-sidebar" aria-label="代码分享侧栏">
         <section class="cs-side-card cs-tags-card">
           <div class="cs-side-heading"><h2><span aria-hidden="true">🔥</span> 热门标签</h2><button type="button" @click="showAllTags = !showAllTags">{{ showAllTags ? '收起' : '查看更多' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
-          <div class="cs-hot-tags"><button v-for="(tag, index) in visibleTags" :key="tag" type="button" :class="[`tag-color-${index % 6}`, { active: activeCategory === tag }]" @click="selectCategory(tag)">{{ tag }}</button></div>
+          <div class="cs-hot-tags"><button v-for="(tag, index) in visibleTags" :key="tag" type="button" :class="[`tag-color-${index % 6}`, { active: activeTag === tag }]" :aria-pressed="activeTag === tag" @click="selectTag(tag)">{{ tag }}</button></div>
         </section>
 
         <section class="cs-side-card cs-columns-card">
-          <div class="cs-side-heading"><h2><svg class="cs-icon"><use href="#icon-stack"/></svg> 推荐专栏</h2><button type="button" @click="selectCategory('全部')">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
-          <div class="cs-column-list"><button v-for="column in columns" :key="column.name" type="button" @click="selectCategory(column.category)"><span class="cs-column-icon" :class="column.color"><svg class="cs-icon"><use :href="`#icon-${column.icon}`"/></svg></span><span class="cs-column-text"><strong>{{ column.name }}</strong><small>{{ column.description }}</small></span><span class="cs-column-arrow">›</span></button></div>
+          <div class="cs-side-heading"><h2><svg class="cs-icon"><use href="#icon-stack"/></svg> 分类精选</h2><button type="button" @click="showAllArticles">全部文章 <svg class="cs-icon"><use href="#icon-arrow"/></svg></button></div>
+          <div class="cs-column-list"><button v-for="column in columns" :key="column.name" type="button" @click="browseCategory(column.category)"><span class="cs-column-icon" :class="column.color"><svg class="cs-icon"><use :href="`#icon-${column.icon}`"/></svg></span><span class="cs-column-text"><strong>{{ column.name }}</strong><small>{{ column.description }}</small></span><span class="cs-column-arrow">›</span></button></div>
         </section>
 
         <section class="cs-side-card cs-author-card">

@@ -98,7 +98,7 @@ struct DSU {
     id: 3,
     title: '背包问题全解析：01 / 完全 / 多重背包',
     summary: '分清物品可选次数，用一维 DP 的循环方向处理 01 背包与完全背包。',
-    category: '题解', tags: ['动态规划', '背包问题', '题解', 'DP', 'C++'],
+    category: '题解', tags: ['动态规划', '背包问题', '题解', 'C++'],
     preview: ['for (int i = 0; i < n; ++i)', '  for (int c = capacity; c >= weight[i]; --c)', '    dp[c] = max(dp[c],', '      dp[c - weight[i]] + value[i]);'],
     sections: [
       { heading: '状态与转移', paragraphs: ['设 dp[c] 为容量不超过 c 时能获得的最大价值。处理重量 w、价值 v 的物品时，可以不选，也可以在剩余容量 c−w 的最优方案上加上 v，所以转移是 dp[c] = max(dp[c], dp[c−w] + v)。这里假设重量为正，空背包价值为 0。'] },
@@ -236,6 +236,8 @@ int lowerBoundIndex(const vector<int>& a, int target) {
   },
 ]
 
-export function articleUrl(id: number): string {
-  return `./article.html?id=${id}`
+export function articleUrl(id: number, fromQuery = ''): string {
+  const params = new URLSearchParams({ id: String(id) })
+  if (fromQuery) params.set('from', fromQuery)
+  return `./article.html?${params}`
 }
