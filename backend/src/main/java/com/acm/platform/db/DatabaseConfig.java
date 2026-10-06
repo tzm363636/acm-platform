@@ -28,6 +28,10 @@ public class DatabaseConfig {
         config.setPassword(env.getRequiredProperty("acm.db.password"));
         config.setMaximumPoolSize(env.getRequiredProperty("acm.db.pool-max",Integer.class));
         config.setMinimumIdle(0); config.setConnectionTimeout(env.getProperty("acm.db.pool-timeout-ms",Long.class,30000L));
+        // Cloud/network idle connections can expire before MySQL's own wait_timeout.
+        config.setMaxLifetime(env.getProperty("acm.db.pool-max-lifetime-ms",Long.class,120000L));
+        config.setIdleTimeout(env.getProperty("acm.db.pool-idle-timeout-ms",Long.class,60000L));
+        config.setKeepaliveTime(env.getProperty("acm.db.pool-keepalive-ms",Long.class,30000L));
         config.setInitializationFailTimeout(-1); config.setPoolName("acm-mysql");
         config.setConnectionInitSql("SET time_zone = '+00:00'");
         Properties props = connectionProperties(env,mode);

@@ -35,17 +35,17 @@ document.title = article.value ? `${article.value.title} · ACM Code Share` : '�
           <h1>{{ article.title }}</h1>
           <p>{{ article.summary }}</p>
           <div class="reading-tags"><span v-for="tag in article.tags" :key="tag">{{ tag }}</span></div>
-          <a class="reading-author" href="./author.html">作者：田振民 <span aria-hidden="true">→</span></a>
+          <a v-if="!article.author || article.authorProfile === './author.html'" class="reading-author" href="./author.html">作者：{{ article.author || '田振民' }} <span aria-hidden="true">→</span></a><span v-else class="reading-author">作者：{{ article.author }}</span>
         </header>
         <div ref="readingBody" class="reading-body">
           <section v-for="(section, index) in article.sections" :id="`section-${index + 1}`" :key="index">
             <component :is="`h${section.level || 2}`">{{ section.heading }}</component>
             <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
             <ul v-if="section.bullets"><li v-for="bullet in section.bullets" :key="bullet">{{ bullet }}</li></ul>
-            <ArticleCodeBlock v-if="section.code" :code="section.code" :label="section.heading" />
+            <ArticleCodeBlock v-if="section.code" :code="section.code" :label="section.heading" :language="section.codeLanguage" />
           </section>
         </div>
-        <footer class="reading-footer"><a :href="returnUrl">← 返回代码分享</a><a href="./author.html">了解作者 →</a></footer>
+        <footer class="reading-footer"><a :href="returnUrl">← 返回代码分享</a><a v-if="!article.author || article.authorProfile === './author.html'" href="./author.html">了解作者 →</a></footer>
       </article>
       <aside v-if="headings.length" ref="readingToc" class="reading-toc">
         <h2 class="reading-toc-title">文章目录 <span>{{ Math.round(progress) }}%</span></h2>

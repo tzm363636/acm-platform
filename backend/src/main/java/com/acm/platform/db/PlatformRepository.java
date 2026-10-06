@@ -39,7 +39,7 @@ public class PlatformRepository {
   long internal=rs.getLong("id");
   return map("id",rs.getLong("public_id"),"title",rs.getString("title"),"summary",rs.getString("summary"),"category",rs.getString("category"),
    "tags",tags("article_tags","article_id",internal),"preview",parse(rs.getString("preview")),"sections",parse(rs.getString("body")),
-   "featured",rs.getBoolean("featured"),"wide",rs.getBoolean("wide"),"author",rs.getString("author"),"publishedAt",utc(rs,"published_at"));
+   "featured",rs.getBoolean("featured"),"wide",rs.getBoolean("wide"),"author",rs.getString("author"),"authorProfile","site-author".equals(rs.getString("author_public_id"))?"./author.html":null,"publishedAt",utc(rs,"published_at"));
  }
  static final String ARTICLE_FROM=" FROM articles a JOIN categories c ON c.id=a.category_id JOIN users u ON u.id=a.author_id ";
  @Transactional(readOnly=true)
@@ -49,12 +49,13 @@ public class PlatformRepository {
   if(!q.isBlank()) where+=" AND (a.title LIKE :q ESCAPE '!' OR a.summary LIKE :q ESCAPE '!' OR c.name LIKE :q ESCAPE '!' OR EXISTS(SELECT 1 FROM article_tags atg JOIN tags t ON t.id=atg.tag_id WHERE atg.article_id=a.id AND t.name LIKE :q ESCAPE '!'))";
   if(!category.isBlank()) where+=" AND c.name=:category";
   if(!tag.isBlank()) where+=" AND EXISTS(SELECT 1 FROM article_tags x JOIN tags t ON t.id=x.tag_id WHERE x.article_id=a.id AND t.name=:tag)";
-  where+=switch(layout){case "featured"->" AND a.featured=TRUE";case "wide"->" AND a.wide=TRUE";case "regular"->" AND a.featured=FALSE AND a.wide=FALSE";case ""->"";default->throw bad("无效文章布局筛选。");};
+  where+=switch(layout){case "featured"->" AND a.featured=TRUE";case "wide"->" AND a.wide=TRUE AND a.featured=FALSE";case "regular"->" AND a.featured=FALSE AND a.wide=FALSE";case ""->"";default->throw bad("无效文章布局筛选。");};
   long total=count("SELECT COUNT(*)"+ARTICLE_FROM+where,args);size=Page.size(size);page=Page.current(page,total,size);
   args.put("limit",size);args.put("offset",(page-1)*size);
-  return Page.of(jdbc.query("SELECT a.*,c.name category,u.display_name author"+ARTICLE_FROM+where+" ORDER BY a.public_id LIMIT :limit OFFSET :offset",args,this::articleRow),page,size,total);
+  return Page.of(jdbc.query("SELECT a.*,c.name category,u.display_name author,u.public_id author_public_id"+ARTICLE_FROM+where+" ORDER BY a.public_id LIMIT :limit OFFSET :offset",args,this::articleRow),page,size,total);
  }
- public Optional<Map<String,Object>> article(long id){return jdbc.query("SELECT a.*,c.name category,u.display_name author"+ARTICLE_FROM+" WHERE a.public_id=:id AND a.status='PUBLISHED'",Map.of("id",id),this::articleRow).stream().findFirst();}
+ public Optional<Map<String,Object>> article(long id){return jdbc.query("SELECT a.*,c.name category,u.display_name author,u.public_id author_public_id"+ARTICLE_FROM+" WHERE a.public_id=:id AND a.status='PUBLISHED'",Map.of("id",id),this::articleRow).stream().findFirst();}
+ public Object articleOptions(){return Map.of("categories",jdbc.queryForList("SELECT DISTINCT c.name FROM categories c JOIN articles a ON a.category_id=c.id WHERE a.status='PUBLISHED' ORDER BY c.name",Map.of(),String.class),"tags",jdbc.queryForList("SELECT DISTINCT t.name FROM tags t JOIN article_tags x ON x.tag_id=t.id JOIN articles a ON a.id=x.article_id WHERE a.status='PUBLISHED' ORDER BY t.name",Map.of(),String.class));}
  Map<String,Object> problemRow(ResultSet rs,int row) throws SQLException {
   long internal=rs.getLong("id");
   return map("id",rs.getString("public_id"),"title",rs.getString("title"),"difficulty",rs.getString("difficulty"),"tags",tags("problem_tags","problem_id",internal),
@@ -71,7 +72,7 @@ public class PlatformRepository {
   if(!q.isBlank()) where+=" AND (p.public_id LIKE :q ESCAPE '!' OR p.title LIKE :q ESCAPE '!')";
   if(!difficulty.isBlank()) where+=" AND p.difficulty=:difficulty";
   if(!tag.isBlank()) where+=" AND EXISTS(SELECT 1 FROM problem_tags x JOIN tags t ON t.id=x.tag_id WHERE x.problem_id=p.id AND t.name=:tag)";
-  if(!status.isBlank()) {if(!Set.of("untried","failed","passed").contains(status))throw bad("无效个人状态。");if(session.isEmpty()||!kind.equals("DEMO"))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"个人状态需要身份；真实登录尚未接入。");where+=" AND "+PERSONAL+"=:status";}
+  if(!status.isBlank()) {if(!Set.of("untried","failed","passed").contains(status))throw bad("无效个人状态。");if(session.isEmpty()||!kind.equals("DEMO"))throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"当前列表只支持演示个人状态；真实状态接口尚未开放。");where+=" AND "+PERSONAL+"=:status";}
   String ordered=order(sort,direction,Map.of("id","p.public_id","difficulty","FIELD(p.difficulty,'简单','中等','困难')","passRate","COALESCE(100.0*st.accepted/NULLIF(st.judged,0),-1)","status","CASE WHEN COALESCE(ps.accepted,0)>0 THEN 2 WHEN COALESCE(ps.attempted,0)>0 THEN 1 ELSE 0 END"));
   long total=count("SELECT COUNT(*)"+PROBLEM_FROM+where,args);size=Page.size(size);page=Page.current(page,total,size);args.put("limit",size);args.put("offset",(page-1)*size);
   var items=jdbc.query("SELECT p.*,COALESCE(st.submissions,0) submission_count,100.0*st.accepted/NULLIF(st.judged,0) pass_rate,"+PERSONAL+" personal_status"+PROBLEM_FROM+where+" ORDER BY "+ordered+",p.public_id LIMIT :limit OFFSET :offset",args,(rs,n)->{
@@ -110,7 +111,7 @@ public class PlatformRepository {
  public Page<Map<String,Object>> submissions(String q,String language,String verdict,String user,String scope,String sort,String direction,int page,int size,String kind,String session){
   Map<String,Object> args=map("q",like(q),"language",language,"verdict",verdict,"user",user,"kind",kind,"session",session);
   String where=" WHERE s.data_kind=:kind";
-  if(scope.equals("mine")){if(session.isBlank()||!kind.equals("DEMO")) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"个人记录需要身份；真实登录未接入。");where+=" AND s.demo_session_hash=:session";}else if(!scope.equals("all"))throw bad("无效记录范围。");
+  if(scope.equals("mine")){if(session.isBlank()||!kind.equals("DEMO")) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"当前列表只支持演示个人记录；真实记录接口尚未开放。");where+=" AND s.demo_session_hash=:session";}else if(!scope.equals("all"))throw bad("无效记录范围。");
   if(!q.isBlank())where+=" AND (p.public_id LIKE :q ESCAPE '!' OR p.title LIKE :q ESCAPE '!')";
   if(!language.isBlank())where+=" AND s.language=:language";
   if(!verdict.isBlank())where+=" AND s.verdict=:verdict";

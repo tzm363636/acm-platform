@@ -74,10 +74,10 @@ const rate = (id: string) => { const value = statsOf(id).passRate; return value 
         <label class="oj-search">搜索题目<input v-model="search" type="search" placeholder="按题号或标题搜索，如 P1032、最短路" /></label>
         <label>难度<select v-model="difficulty"><option value="">全部难度</option><option>简单</option><option>中等</option><option>困难</option></select></label>
         <label>算法标签<select v-model="tag"><option value="">全部标签</option><option v-for="item in tags" :key="item">{{ item }}</option></select></label>
-        <label>个人状态<select v-model="status" :disabled="!demoIdentity" :title="demoIdentity ? '本机演示状态' : '个人状态需要登录；登录未接入'"><option value="">{{ demoIdentity ? '全部演示状态' : '登录未接入' }}</option><option v-for="(label, key) in personalLabels" :key="key" :value="key">{{ label }}</option></select></label>
+        <label>个人状态<select v-model="status" :disabled="!demoIdentity" :title="demoIdentity ? '本机演示状态' : '演示状态需要启用演示身份'"><option value="">{{ demoIdentity ? '全部演示状态' : '演示身份未启用' }}</option><option v-for="(label, key) in personalLabels" :key="key" :value="key">{{ label }}</option></select></label>
         <label class="oj-checkbox"><input v-model="hideTags" type="checkbox" />隐藏标签</label>
       </div>
-      <p v-if="!demoIdentity" class="oj-muted">个人状态需要登录；当前登录未接入，启用演示身份可查看本机模拟练习状态。</p>
+      <p v-if="!demoIdentity" class="oj-muted">演示状态与真实账户独立；启用演示身份可查看当前模拟练习状态。</p>
       <section class="oj-card oj-list-card" :aria-busy="loading">
         <div class="oj-list-heading"><strong>共 {{ loading && !items.length ? '—' : pagination.total }} 道题目</strong><button class="oj-link-button" @click="clear">↻ 清除筛选</button></div>
         <p class="oj-refresh-status" :role="error ? 'alert' : 'status'">{{ items.length && loading ? '正在刷新，保留当前题目…' : items.length && error ? error : '' }} <button v-if="items.length && error" class="oj-link-button" @click="load()">重试</button></p><OjSkeleton v-if="loading && !items.length" label="正在加载题库…" :rows="size" />

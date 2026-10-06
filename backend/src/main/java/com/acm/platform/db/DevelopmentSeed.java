@@ -18,7 +18,7 @@ public class DevelopmentSeed {
  public void importContent() throws Exception {
   requireDevelopment();Map<String,List<Map<String,Object>>> source;
   try(var input=new ClassPathResource("db/seed/site-content.json").getInputStream()){source=repo.mapper().readValue(input,new TypeReference<>(){});}
-  repo.jdbc().update("INSERT INTO users(public_id,display_name,role) VALUES('site-author','田振民','AUTHOR') ON DUPLICATE KEY UPDATE public_id=public_id",Map.of());
+  repo.jdbc().update("INSERT INTO users(public_id,display_name,role) VALUES('site-author','田振民','USER') ON DUPLICATE KEY UPDATE public_id=public_id",Map.of());
   long author=id("users","public_id","site-author");
   for(var a:source.get("articles")){
    if(repo.count("SELECT COUNT(*) FROM articles WHERE public_id=:id",Map.of("id",a.get("id")))>0){

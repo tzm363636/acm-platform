@@ -23,7 +23,7 @@ public class DemoService {
   if(!token.matches("[a-zA-Z0-9-]{32,128}"))throw PlatformRepository.bad("无效演示会话。");
   try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));}catch(NoSuchAlgorithmException e){throw new IllegalStateException();}
  }
- void enabled(){if(!env.getProperty("acm.db.demo-enabled",Boolean.class,false)||!"development".equals(env.getProperty("acm.db.environment"))) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"演示写入未开放；需要明确的开发数据库配置。正式登录和判题尚未接入。");}
+ void enabled(){if(!env.getProperty("acm.db.demo-enabled",Boolean.class,false)||!"development".equals(env.getProperty("acm.db.environment"))) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"演示写入未开放；需要明确的开发数据库配置。真实判题尚未接入。");}
  void validate(Request r){if(r.code()==null||r.code().isBlank())throw PlatformRepository.bad("代码为空。");if(r.code().length()>262144)throw PlatformRepository.bad("代码过长，最多 256K 字符。");if(!"cpp17".equals(r.language()))throw PlatformRepository.bad("仅开放 C++17 演示语言。");if(!SCENARIOS.contains(r.scenario()))throw PlatformRepository.bad("无效固定演示场景。");if(r.input()!=null&&r.input().length()>262144)throw PlatformRepository.bad("输入过长。");}
  public static String information(String scene){return switch(scene){
   case "CE"->"固定编译错误演示（未编译用户代码）：\nmain.cpp:12:5: error: expected ';' before 'return'\n   12 | return 0;\n      | ^";

@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [vue(), tailwindcss()],
   build: {
     rollupOptions: {
-      input: ['index.html', 'code-sharing.html', 'oj.html', 'about.html', 'milestone.html', 'article.html', 'author.html'],
+      input: ['index.html', 'code-sharing.html', 'oj.html', 'about.html', 'milestone.html', 'article.html', 'author.html', 'account.html'],
     },
   },
   server: {

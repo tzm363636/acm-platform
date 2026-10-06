@@ -8,5 +8,5 @@ import java.util.Map;
 public class CapabilitiesController {
  final ObjectProvider<PlatformRepository> repo;final Environment env;
  public CapabilitiesController(ObjectProvider<PlatformRepository> repo,Environment env){this.repo=repo;this.env=env;}
- @GetMapping("/capabilities") public Object capabilities(){return Map.of("database",repo.getIfAvailable()!=null,"login",false,"realJudge",false,"demoWrites",env.getProperty("acm.db.demo-enabled",Boolean.class,false)&&"development".equals(env.getProperty("acm.db.environment")),"timeZone","Asia/Shanghai");}
+ @GetMapping("/capabilities") public Object capabilities(){return Map.of("database",repo.getIfAvailable()!=null,"login",repo.getIfAvailable()!=null,"realJudge",false,"demoWrites",env.getProperty("acm.db.demo-enabled",Boolean.class,false)&&"development".equals(env.getProperty("acm.db.environment")),"timeZone","Asia/Shanghai");}
 }

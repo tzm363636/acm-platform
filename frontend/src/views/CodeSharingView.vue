@@ -7,8 +7,8 @@ import { concealLeavingSurface } from '../composables/surfaceTransition'
 import { articles as offlineArticles, articleUrl, type Article } from '../data/articles'
 import { databaseMode, getData, type ServerPage } from '../api/database'
 
-const categories = ['全部', '题解', '算法模板', '竞赛经验', '408笔记']
-const hotTags = ['图论', '动态规划', '数据结构', '搜索', 'C++', '模板', '字符串', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记']
+const categories = ref(['全部', '题解', '算法模板', '竞赛经验', '408笔记'])
+const hotTags = ref(['图论', '动态规划', '数据结构', '搜索', 'C++', '模板', '字符串', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记'])
 const columns = [
   { name: '算法模板库', description: '常用算法模板整理，开箱即用', category: '算法模板', icon: 'book', color: 'orange' },
   { name: '408 知识整理', description: '数据结构、计算机组成原理等', category: '408笔记', icon: 'file', color: 'blue' },
@@ -18,8 +18,8 @@ const columns = [
 const initialParams = new URLSearchParams(window.location.search)
 const initialCategory = initialParams.get('category') || '全部'
 const initialTag = initialParams.get('tag') === 'DP' ? '动态规划' : initialParams.get('tag') || ''
-const activeCategory = ref(categories.includes(initialCategory) ? initialCategory : '全部')
-const activeTag = ref(hotTags.includes(initialTag) ? initialTag : '')
+const activeCategory = ref(databaseMode || categories.value.includes(initialCategory) ? initialCategory : '全部')
+const activeTag = ref(databaseMode || hotTags.value.includes(initialTag) ? initialTag : '')
 const searchDraft = ref(initialParams.get('q') || '')
 const searchTerm = ref(searchDraft.value.trim())
 const showMore = ref(initialParams.get('more') === '1')
@@ -45,10 +45,10 @@ const filteredArticles = computed(() => databaseMode ? articles.value : articles
   return categoryMatches && tagMatches && textMatches
 }))
 const featuredArticle = computed(() => filteredArticles.value.find((article) => article.featured))
-const regularArticles = computed(() => filteredArticles.value.filter((article) => !article.featured && !article.wide))
+const regularArticles = computed(() => filteredArticles.value.filter((article) => article.id !== featuredArticle.value?.id && article.id !== wideArticle.value?.id))
 const visibleArticles = computed(() => isFiltering.value || showMore.value ? regularArticles.value : regularArticles.value.slice(0, 4))
-const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide))
-const visibleTags = computed(() => showAllTags.value ? hotTags : hotTags.slice(0, 10))
+const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide && !article.featured))
+const visibleTags = computed(() => showAllTags.value ? hotTags.value : hotTags.value.slice(0, 10))
 const resultKey = computed(() => `${activeCategory.value}|${activeTag.value}|${searchTerm.value}|${showMore.value}`)
 const sharingQuery = computed(() => {
   const params = new URLSearchParams()
@@ -69,7 +69,7 @@ async function loadArticles() {
   const [featured,regular,wide]=await Promise.all(['featured','regular','wide'].map(layout=>getData<ServerPage<Article>>('/articles',{...params,layout,size:layout==='regular'&&!isFiltering.value&&!showMore.value?4:100})))
   if(version!==articleRequest)return
   const previousTop=preserveSidebar?sidebar.value?.getBoundingClientRect().top:undefined
-  loading.value=false;articles.value=[...featured.items,...regular.items,...wide.items];regularTotal.value=regular.total;filteredTotal.value=featured.total+regular.total+wide.total
+  loading.value=false;articles.value=[...new Map([...featured.items,...regular.items,...wide.items].map(article=>[article.id,article])).values()];regularTotal.value=regular.total+Math.max(0,featured.total-1)+Math.max(0,wide.total-1);filteredTotal.value=featured.total+regular.total+wide.total
   await nextTick()
   if(version===articleRequest&&previousTop!==undefined&&sidebar.value){const change=sidebar.value.getBoundingClientRect().top-previousTop;if(Math.abs(change)>1)window.scrollBy({top:change,behavior:'instant'})}
   preserveSidebar=false
@@ -77,7 +77,7 @@ async function loadArticles() {
  finally{if(version===articleRequest)loading.value=false}
 }
 watch(sharingQuery,()=>{if(databaseMode)void loadArticles()})
-onMounted(async()=>{if(databaseMode){void loadArticles();try{totalArticles.value=(await getData<ServerPage<Article>>('/articles',{size:1})).total}catch{ /* List error offers retry. */ }}})
+onMounted(async()=>{if(databaseMode){void loadArticles();try{const opts=await getData<{categories:string[];tags:string[]}>('/article-options');categories.value=['全部',...opts.categories];hotTags.value=[...hotTags.value.filter(t=>opts.tags.includes(t)),...opts.tags.filter(t=>!hotTags.value.includes(t))];totalArticles.value=(await getData<ServerPage<Article>>('/articles',{size:1})).total}catch{ /* List error offers retry. */ }}})
 
 watch(sharingQuery, (query) => {
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
@@ -240,7 +240,7 @@ async function focusSearch() {
             <h3>{{ featuredArticle.title }}</h3>
             <p>{{ featuredArticle.summary }}</p>
             <div class="cs-article-tags"><span v-for="tag in featuredArticle.tags" :key="tag">{{ tag }}</span></div>
-            <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div>
+            <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ featuredArticle.author || '田振民' }}</span><span>阅读全文 →</span></div>
           </div>
         </a>
 
@@ -254,14 +254,14 @@ async function focusSearch() {
               <h3>{{ article.title }}</h3>
               <p>{{ article.summary }}</p>
               <div class="cs-article-tags"><span v-for="tag in article.tags.slice(0, 4)" :key="tag">{{ tag }}</span></div>
-              <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div>
+              <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ article.author || '田振民' }}</span><span>阅读全文 →</span></div>
             </div>
           </a>
         </div>
 
         <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id, sharingQuery)" :aria-label="`阅读文章：${wideArticle.title}`" @click="saveListPosition">
           <img :src="mountainUrl" alt="登山者站在山峰上迎接日出" />
-          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> 田振民</span><span>阅读全文 →</span></div></div>
+          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ wideArticle.author || '田振民' }}</span><span>阅读全文 →</span></div></div>
         </a>
         </div>
       </main>

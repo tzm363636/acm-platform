@@ -4,6 +4,7 @@ export type ArticleSection = {
   paragraphs: string[]
   bullets?: string[]
   code?: string
+  codeLanguage?: string | null
 }
 
 export type Article = {
@@ -16,6 +17,8 @@ export type Article = {
   sections: ArticleSection[]
   featured?: boolean
   wide?: boolean
+  author?: string
+  authorProfile?: string | null
 }
 
 export const articles: Article[] = [
