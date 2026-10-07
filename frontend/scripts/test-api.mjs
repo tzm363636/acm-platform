@@ -26,7 +26,7 @@ try {
   const { requestError } = await import(pathToFileURL(join(dir, 'errors.js')))
   let calls = [], scenario = 'valid', rejectWrites = false
   apiClient.defaults.adapter = async config => {
-    calls.push({ method: config.method, url: config.url, hasCsrf: !!config.headers.get('X-CSRF-TOKEN') })
+    calls.push({ method: config.method, url: config.url, timeout: config.timeout, hasCsrf: !!config.headers.get('X-CSRF-TOKEN') })
     const response = { status: 200, statusText: 'OK', config, headers: { 'content-type': 'application/json;charset=UTF-8' }, data: {} }
     if (config.url === '/auth/csrf') {
       response.data = { token: 'isolated-test-token', headerName: 'X-CSRF-TOKEN' }
@@ -40,6 +40,13 @@ try {
     return response
   }
   await Promise.all([postData('/auth/login', {}), postData('/account/profile', {})])
+  await getData('/auth/me')
+  check('authentication allows cold startup while ordinary writes retain their timeout', () => {
+    assert.equal(calls.find(c => c.url === '/auth/login').timeout, 90000)
+    assert.equal(calls.find(c => c.url === '/auth/csrf').timeout, 90000)
+    assert.equal(calls.find(c => c.url === '/auth/me').timeout, 90000)
+    assert.equal(calls.find(c => c.url === '/account/profile').timeout, 45000)
+  })
   check('concurrent writes share one CSRF request and attach its header', () => {
     assert.equal(calls.filter(c => c.url === '/auth/csrf').length, 1)
     assert.equal(calls.filter(c => c.method === 'post' && c.hasCsrf).length, 2)
