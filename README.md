@@ -4,6 +4,7 @@ ACM / OJ 与代码分享个人平台：Vue 多页面前端、Spring Boot API，�
 
 数据库设计、TLS、迁移、环境变量和启动步骤见 [backend/DATABASE.md](backend/DATABASE.md)。默认无数据库 profile 时保留健康接口；数据库模式须先显式迁移，再启动服务。
 登录、两种角色、投稿流程、首个管理员初始化及控制台入口见 [backend/AUTH.md](backend/AUTH.md)。账号页面为 `account.html`，管理员控制台为 `account.html#/admin`。
+Render 前后端部署与同源 `/api` 转发、Aiven CA 配置和上线验收见 [RENDER.md](RENDER.md)。
 
 ## 目录
 

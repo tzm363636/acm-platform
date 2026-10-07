@@ -1,0 +1,48 @@
+# Reference for the existing services. Review/import deliberately; saving this file alone
+# does not change an existing Render service. Secrets are entered only in Render.
+services:
+  - type: web
+    name: acm-platform-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    autoDeployTrigger: 'off'
+    healthCheckPath: /api/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: aiven,render
+      - key: DB_ACTION
+        value: serve
+      - key: DB_ENVIRONMENT
+        value: cloud
+      - key: DB_EXPECTED_MAJOR
+        value: '8'
+      - key: DB_POOL_MAX
+        value: '2'
+      - key: DB_CA_CERT_PATH
+        value: /etc/secrets/ca.pem
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_NAME
+        sync: false
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_TRUSTSTORE_PASSWORD
+        sync: false
+  - type: web
+    name: acm-platform-web
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    autoDeployTrigger: 'off'
+    envVars:
+      - key: VITE_DATA_SOURCE
+        value: api
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: https://acm-platform-api.onrender.com/api/*

@@ -1,0 +1,7 @@
+secrets/
+target/
+.env
+.env.*
+*.p12
+*.jks
+*.key
