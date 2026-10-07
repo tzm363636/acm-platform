@@ -5,9 +5,12 @@ declare module 'axios' { interface InternalAxiosRequestConfig { acmIdentityEpoch
 
 // Shared backend entry; credentials never enter the browser. Cloud queries can queue behind the small pool.
 export const apiClient = axios.create({ baseURL: '/api', timeout: 45000, withCredentials: true })
+const authPaths = new Set(['/auth/me', '/auth/csrf', '/auth/login', '/auth/register', '/auth/logout'])
 let csrf: Promise<{ token: string; headerName: string }> | undefined
 export function clearCsrf() { csrf = undefined }
 apiClient.interceptors.request.use(async config => {
+  // A free Render instance can take about a minute to wake. Do not replay authentication writes.
+  if (authPaths.has(config.url || '') && config.timeout === apiClient.defaults.timeout) config.timeout = 90000
   const mine = config.acmIdentityEpoch = identityEpoch()
   if (!['get', 'head', 'options'].includes(config.method || 'get')) {
     if (!csrf) {
