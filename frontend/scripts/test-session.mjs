@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { parse, compileScript } from 'vue/compiler-sfc'
 import { AxiosError } from 'axios'
-import 'vue'
+import { effectScope, nextTick } from 'vue'
 
 const dir = await mkdtemp(join(tmpdir(), 'acm-session-'))
 const events = new EventTarget(), documentEvents = new EventTarget(), stored = new Map()
@@ -122,7 +122,7 @@ try {
   assert.equal(await first, false); unregister(); assert.equal(await guards.requestLeave(), true)
 
   // Execute the real form's script with only its route replaced; API calls still use the fixture adapter.
-  await writeFile(join(dir, 'route-fixture.js'), "export const useRoute=()=>({path:'/register'});export const useRouter=()=>({replace:async()=>{}})")
+  await writeFile(join(dir, 'route-fixture.js'), `import { reactive } from ${JSON.stringify(import.meta.resolve('vue'))};export const route=reactive({path:'/register'});export const useRoute=()=>route;export const useRouter=()=>({replace:async()=>{}})`)
   const formSource = await readFile(new URL('../src/account/AuthPage.vue', import.meta.url), 'utf8')
   const compiledForm = compileScript(parse(formSource).descriptor, { id: 'registration-retry' }).content
   const formCode = ts.transpileModule(compiledForm, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
@@ -141,6 +141,38 @@ try {
   check('registration success plus login outage retains input and states which step failed', () => { assert.equal(form.password.value, 'test-only-not-a-real-password'); assert.match(form.error.value, /账户已创建，登录尚未完成/); assert.equal(form.busy.value, false) })
   await form.submit()
   check('retry after successful registration only retries login and clears password on success', () => { assert.equal(calls.slice(beforeRegistration).filter(path => path === '/auth/register').length, 1); assert.equal(form.password.value, ''); assert.equal(form.confirmPassword.value, ''); assert.equal(form.error.value, ''); assert.equal(returnDestination, 'https://fixture.invalid/code-sharing.html') })
+
+  // Exercise the real account shell's retained input and visibility state across identity changes.
+  const shellSource = await readFile(new URL('../src/account/AccountApp.vue', import.meta.url), 'utf8')
+  const shellScript = compileScript(parse(shellSource).descriptor, { id: 'private-surface' }).content
+  const shellCode = ts.transpileModule(shellScript, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
+    .replaceAll("'vue'", JSON.stringify(import.meta.resolve('vue')))
+    .replaceAll("'vue-router'", "'./route-fixture.js'").replaceAll("'./auth'", "'./auth.js'")
+    .replaceAll("'../components/Navbar.vue'", "'./password-fixture.js'").replaceAll("'./ConfirmationDialog.vue'", "'./password-fixture.js'")
+    .replace('onMounted(retry);', '') // Identity is controlled by the adapter in this isolated, unmounted test.
+  await writeFile(join(dir, 'account-shell.js'), shellCode)
+  const shellComponent = (await import(pathToFileURL(join(dir, 'account-shell.js')))).default
+  const { route } = await import(pathToFileURL(join(dir, 'route-fixture.js')))
+  const shellScope = effectScope()
+  try {
+    serverUser = a; await auth.login('fixture_a', 'test-only-not-a-real-password'); route.path = '/profile'
+    const shell = shellScope.run(() => shellComponent.setup({}, { expose() {} }))
+    check('authenticated profile is visible and retains its input component', () => { assert.equal(shell.contentVisible.value, true); assert.equal(shell.retainedEditor.value, true) })
+    serverUser = null; window.dispatchEvent(Object.assign(new Event('storage'), { key: 'acm-account-refresh' })); await auth.loadUser(true); await nextTick()
+    check('cross-tab logout hides profile and cached private summaries without discarding inputs', () => { assert.equal(auth.authStatus.value, 'expired'); assert.equal(shell.contentVisible.value, false); assert.equal(shell.retainedEditor.value, true) })
+    serverUser = a; await auth.login('fixture_a', 'test-only-not-a-real-password'); await nextTick()
+    check('same-account login restores the retained private surface', () => assert.equal(shell.contentVisible.value, true))
+    failure = { path: '/auth/me', status: 503 }; await auth.loadUser(true); await nextTick()
+    check('unconfirmed identity hides private content while keeping inputs for retry', () => { assert.equal(shell.contentVisible.value, false); assert.equal(shell.retainedEditor.value, true) })
+    await auth.loadUser(true); route.path = '/articles/42'; await nextTick(); auth.expireSession(); await nextTick()
+    check('expired article editor is hidden but stays retained for reauthentication', () => { assert.equal(shell.contentVisible.value, false); assert.equal(shell.retainedEditor.value, true) })
+    serverUser = b; await auth.login('fixture_b', 'test-only-not-a-real-password'); await nextTick()
+    check('another account cannot display the retained editor', () => { assert.equal(shell.differentOwner.value, true); assert.equal(shell.contentVisible.value, false) })
+    route.path = '/login'; await nextTick()
+    check('public login page stays available during session expiry', () => { auth.expireSession(); assert.equal(shell.contentVisible.value, true) })
+    serverUser = a; await auth.login('fixture_a', 'test-only-not-a-real-password'); route.path = '/admin'; await nextTick()
+    check('USER cannot display the administrator surface', () => assert.equal(shell.contentVisible.value, false))
+  } finally { shellScope.stop() }
   console.log(`${checks} session checks passed`)
 } finally {
   await rm(dir, { recursive: true, force: true })
