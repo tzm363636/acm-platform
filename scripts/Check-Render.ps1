@@ -23,7 +23,12 @@ function Request([string]$Url,[string]$Method='GET',$Session=$null,$Headers=@{})
     return @{Status=[int]$r.StatusCode;Body=$r.Content;Headers=$r.Headers;FinalUri=$finalUri}
   } catch {
     $r=$_.Exception.Response
-    if (!$r) { return @{Status=0;Body='';Headers=@{};FinalUri=$null} }
+    if (!$r) {
+      # Distinguish a local DNS/TLS/client failure from an HTTP error returned by Render.
+      # Exception messages can include request details; print the class name only.
+      Write-Host ('WARN No HTTP response ('+$_.Exception.GetType().Name+'); check this computer''s DNS, TLS and network. Certificate validation remains enabled.')
+      return @{Status=0;Body='';Headers=@{};FinalUri=$null}
+    }
     if ($r.GetType().FullName -eq 'System.Net.Http.HttpResponseMessage') {
       $body=$_.ErrorDetails.Message
       $headers=@{}
