@@ -4,8 +4,9 @@ import { onBeforeRouteLeave, useRoute, useRouter } from 'vue-router'
 import ArticleCodeBlock from '../components/ArticleCodeBlock.vue'
 import { codeLanguage, codeLanguages } from '../components/codeLanguages'
 import { ApiError, getData, postData, putData } from '../api/database'
-import { currentUser } from './auth'
-import { confirmAction } from './confirmation'
+import { authStatus, currentUser } from './auth'
+import { chooseAction, confirmAction } from './confirmation'
+import { registerLeaveGuard, requestLeave } from './leaveGuard'
 import { DraftSaver, type SaveState } from './draftSaver'
 import { contentSignature as fingerprint } from './contentSignature'
 import { statusNames, time, type ManagedArticle, type Options } from './types'
@@ -24,8 +25,8 @@ const preview = ref(route.path.startsWith('/admin/articles/')), reason = ref('')
 const saveState = ref<SaveState>('unsaved'), lastSavedAt = ref<string>(), serverVersion = ref<ManagedArticle>(), showServer = ref(false), copyFeedback = ref('')
 const newSection = (): ArticleSection => ({ heading: '', level: 2, paragraphs: [''], bullets: [], code: '', codeLanguage: 'plaintext' })
 const form = ref<Form>({ title: '', summary: '', categoryId: 0, tagIds: [], sections: [{ ...newSection(), heading: '正文' }], revision: 0, draftKey: crypto.randomUUID() })
-const admin = computed(() => currentUser.value?.role === 'ADMIN')
-const editable = computed(() => currentUser.value?.id === owner && article.value?.status !== 'PENDING' && (!article.value || admin.value || ['DRAFT', 'REJECTED'].includes(article.value.status)))
+const admin = computed(() => authStatus.value === 'authenticated' && currentUser.value?.id === owner && currentUser.value?.role === 'ADMIN')
+const editable = computed(() => authStatus.value === 'authenticated' && currentUser.value?.id === owner && article.value?.status !== 'PENDING' && (!article.value || admin.value || ['DRAFT', 'REJECTED'].includes(article.value.status)))
 const autoAllowed = computed(() => editable.value && !busy.value && !serverVersion.value && (!article.value || ['DRAFT', 'REJECTED'].includes(article.value.status)))
 const selectedTags = computed(() => options.value.tags.filter(t => form.value.tagIds.includes(t.id)))
 const visibleTags = computed(() => options.value.tags.filter(t => !form.value.tagIds.includes(t.id) && t.name.toLowerCase().includes(tagSearch.value.trim().toLowerCase())))
@@ -33,7 +34,7 @@ const returnTo = computed(() => { const value = String(route.query.list || ''); 
 let applying = false, backupSafe = false, savedFingerprint = ''
 function normalize(s: ArticleSection): ArticleSection { return { ...s, level: s.level || 2, paragraphs: [...s.paragraphs], bullets: [...(s.bullets || [])], code: s.code || '', codeLanguage: codeLanguage(s.codeLanguage).value } }
 function articleForm(a: ManagedArticle): Form { return { title: a.title, summary: a.summary, categoryId: a.categoryId, tagIds: [...a.tagIds], sections: a.sections.map(normalize), revision: a.revision } }
-function backup() { if (!editable.value) return; try { localStorage.setItem(backupKey, JSON.stringify({ form: form.value, articleId: id.value, lastSavedAt: lastSavedAt.value })); sessionStorage.setItem(pointerKey, backupKey); restoreKey = backupKey; backupSafe = true } catch { backupSafe = false; notice.value = '本地备份不可用，请及时保存到服务器。' } }
+function backup() { if (!owner) return; try { localStorage.setItem(backupKey, JSON.stringify({ form: form.value, articleId: id.value, lastSavedAt: lastSavedAt.value })); sessionStorage.setItem(pointerKey, backupKey); restoreKey = backupKey; backupSafe = true } catch { backupSafe = false; notice.value = '本地备份不可用，请及时保存到服务器。' } }
 function clearBackup() { try { localStorage.removeItem(backupKey); sessionStorage.removeItem(pointerKey); localStorage.removeItem(legacyBackupKey); restoreKey = null } catch {} }
 function apply(a: ManagedArticle) { applying = true; article.value = a; id.value = a.id; form.value = articleForm(a); savedFingerprint = fingerprint(form.value); dirty.value = false; applying = false; serverVersion.value = undefined; showServer.value = false; saver.reset() }
 function validate() {
@@ -54,8 +55,9 @@ function validate() {
 const saver = new DraftSaver<Form, ManagedArticle>({
   dirty: () => dirty.value, autoAllowed: () => autoAllowed.value,
   capture: () => { if (!editable.value || serverVersion.value) return undefined; validation.value = validate(); return validation.value ? undefined : JSON.parse(JSON.stringify(form.value)) },
-  send: snapshot => id.value ? putData(`/account/articles/${id.value}`, snapshot) : postData('/account/articles', snapshot),
+  send: snapshot => { if (!editable.value) throw new ApiError('身份尚未确认或已变化，保存已暂停。'); return id.value ? putData(`/account/articles/${id.value}`, snapshot) : postData('/account/articles', snapshot) },
   accept: (a, snapshot) => {
+    if (authStatus.value !== 'authenticated' || currentUser.value?.id !== owner) { backup(); saver.pause(); notice.value = '账户状态变化，旧保存响应没有覆盖当前输入。请重新确认身份后检查服务器版本。'; return }
     // Acknowledge a snapshot without applying its old body over newer typing.
     if (!id.value && a.revision > 0) { article.value = a; id.value = a.id; serverVersion.value = a; saver.pause(); error.value = '创建请求已成功，但服务器草稿随后被更新。双方内容已保留，请处理版本冲突。'; backup(); return }
     article.value = a; id.value = a.id; applying = true; form.value.revision = a.revision; form.value.draftKey ||= snapshot.draftKey; applying = false
@@ -65,7 +67,7 @@ const saver = new DraftSaver<Form, ManagedArticle>({
   failed: failure => { backup(); if (failure instanceof ApiError && failure.status === 409) void refreshConflict() }
 })
 watch(form, () => { if (!loading.value && !applying) { dirty.value = fingerprint(form.value) !== savedFingerprint; validation.value = ''; backup(); saver.edited() } }, { deep: true, flush: 'sync' })
-watch(editable, value => { if (!value) saver.pause() })
+watch(editable, value => { if (!value) { if (dirty.value) backup(); saver.pause() } else if (dirty.value) notice.value = '身份已确认，未保存内容仍在。请手动保存或查看服务器版本。' }, { flush: 'sync' })
 watch(currentUser, user => { if (user && article.value?.authorId === user.id) article.value.author = user.displayName })
 async function load() {
   if (dirty.value && !await confirmAction('重新读取服务器内容？本地输入仍会保留在备份中。')) return
@@ -100,9 +102,9 @@ async function conflictLocal() {
   applying = true; form.value.revision = serverVersion.value.revision; applying = false; serverVersion.value = undefined; await save()
 }
 async function copyLocal() { try { await navigator.clipboard.writeText(JSON.stringify(form.value, null, 2)); copyFeedback.value = '本地全文已复制（包含原始代码）。' } catch { copyFeedback.value = '复制失败，请在下方文本框选择并复制。' } }
-async function refreshConflict() { if (!id.value) return; saver.pause(); try { serverVersion.value = await getData(`/account/articles/${id.value}`) } catch { notice.value = '服务器版本暂时无法读取，请重试。' } }
+async function refreshConflict() { if (!id.value || currentUser.value?.id !== owner || authStatus.value !== 'authenticated') return; saver.pause(); try { const value = await getData<ManagedArticle>(`/account/articles/${id.value}`); if (currentUser.value?.id === owner && authStatus.value === 'authenticated') serverVersion.value = value } catch { notice.value = '服务器版本暂时无法读取，请重试。' } }
 async function action(name: string) {
-  if (!article.value || busy.value || serverVersion.value) return
+  if (!article.value || busy.value || serverVersion.value || authStatus.value !== 'authenticated' || currentUser.value?.id !== owner) return
   if (name === 'reject' && !reason.value.trim()) { error.value = '请填写驳回原因。'; return }
   if (dirty.value && !['submit', 'publish'].includes(name)) { error.value = '请先保存修改再执行状态操作。'; return }
   busy.value = true; freeze.value = true; error.value = ''
@@ -114,15 +116,38 @@ async function action(name: string) {
     const a = await postData<ManagedArticle>(`${path}/articles/${article.value.id}/${name}`, { revision: article.value.revision, reason: reason.value }); apply(a); clearBackup(); reason.value = ''; notice.value = '操作完成。'
   } catch (e) { error.value = (e as Error).message; if (e instanceof ApiError && e.status === 409) await refreshConflict() } finally { busy.value = false; freeze.value = false; if (dirty.value) saver.edited() }
 }
-async function flags() { if (!article.value || busy.value || dirty.value) return; busy.value = true; error.value = ''; try { apply(await putData(`/admin/articles/${article.value.id}/flags`, { revision: article.value.revision, featured: article.value.featured, wide: article.value.wide })); notice.value = '推荐设置已保存。' } catch (e) { error.value = (e as Error).message; if (e instanceof ApiError && e.status === 409) await refreshConflict() } finally { busy.value = false } }
+async function flags() { if (!article.value || busy.value || dirty.value || authStatus.value !== 'authenticated' || currentUser.value?.id !== owner) return; busy.value = true; error.value = ''; try { apply(await putData(`/admin/articles/${article.value.id}/flags`, { revision: article.value.revision, featured: article.value.featured, wide: article.value.wide })); notice.value = '推荐设置已保存。' } catch (e) { error.value = (e as Error).message; if (e instanceof ApiError && e.status === 409) await refreshConflict() } finally { busy.value = false } }
 function moveSection(index: number, offset: number) { const target = index + offset; if (target < 0 || target >= form.value.sections.length) return; const moved = form.value.sections.splice(index, 1)[0]!; form.value.sections.splice(target, 0, moved) }
 async function removeSection(index: number) { if (await confirmAction('删除当前章节及其中内容？')) form.value.sections.splice(index, 1) }
 function addSection() { form.value.sections.push(newSection()) }
 function insertTab(event: KeyboardEvent, section: ArticleSection) { const textarea = event.target as HTMLTextAreaElement; textarea.setRangeText('    ', textarea.selectionStart, textarea.selectionEnd, 'end'); section.code = textarea.value }
-function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value) { backup(); if (!backupSafe) e.preventDefault() } }
-onBeforeRouteLeave(async () => { const allowed = !dirty.value || await confirmAction(backupSafe ? '修改尚未保存到服务器，本地已备份。确认离开？' : '修改未保存，本地备份也不可用。确认离开？'); if (allowed && !dirty.value && id.value) clearBackup(); return allowed })
-onMounted(() => { void load(); window.addEventListener('beforeunload', beforeUnload) })
-onBeforeUnmount(() => { saver.dispose(); window.removeEventListener('beforeunload', beforeUnload) })
+let removeLeaveGuard: (() => void) | undefined, leaving = false
+async function leave() {
+  if (!dirty.value) return true
+  backup(); saver.pause()
+  const choice = await chooseAction(backupSafe ? '修改尚未保存到服务器，已保留本机备份。请选择离开方式。' : '修改未保存，且本机备份不可用。直接离开会丢失当前输入。', [{ value: 'cancel', label: '取消' }, ...(editable.value && !serverVersion.value ? [{ value: 'save', label: '保存后离开' }] : []), { value: 'leave', label: backupSafe ? '保留本地后离开' : '确认直接离开' }])
+  if (choice === 'cancel') { if (autoAllowed.value && saveState.value !== 'failed') { saver.reset(); saver.edited() } return false }
+  if (choice === 'save') {
+    if (article.value?.status === 'PUBLISHED' && !await confirmAction('保存后立即更新公开文章。确认保存后离开？')) return false
+    busy.value = true
+    try { if (!await saver.flush() || dirty.value || serverVersion.value) return false } finally { busy.value = false }
+    if (id.value) clearBackup()
+  }
+  return true
+}
+function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value && !leaving) { backup(); e.preventDefault(); e.returnValue = '' } }
+async function navigation(event: MouseEvent) {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !dirty.value) return
+  const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>('a[href]') : null
+  if (!link || link.target === '_blank' || link.hasAttribute('download')) return
+  const destination = new URL(link.href, location.href)
+  if (destination.origin !== location.origin || (destination.pathname === location.pathname && destination.search === location.search)) return
+  event.preventDefault()
+  if (await requestLeave()) { leaving = true; location.assign(destination.href) }
+}
+onBeforeRouteLeave(requestLeave)
+onMounted(() => { void load(); removeLeaveGuard = registerLeaveGuard(leave); window.addEventListener('beforeunload', beforeUnload); document.addEventListener('click', navigation, true) })
+onBeforeUnmount(() => { saver.dispose(); removeLeaveGuard?.(); window.removeEventListener('beforeunload', beforeUnload); document.removeEventListener('click', navigation, true) })
 </script>
 <template>
   <header class="account-heading"><div><RouterLink :to="returnTo">← 返回文章列表</RouterLink><h1>{{ article?.title || (id ? loading ? '正在加载文章…' : '文章不可访问' : '新建文章') }}</h1><p><span v-if="article" class="account-badge" :data-status="article.status">{{ statusNames[article.status] }}</span> {{ article ? `作者：${article.author}` : id ? '正在读取正文与审核记录。' : '准备好后再发布或投稿。' }}</p></div></header>
@@ -135,7 +160,7 @@ onBeforeUnmount(() => { saver.dispose(); window.removeEventListener('beforeunloa
   <div v-else class="account-editor-grid">
     <section class="account-card"><div class="account-editor-toolbar"><button class="account-button" :aria-pressed="!preview" @click="preview = false">编辑</button><button class="account-button" :aria-pressed="preview" @click="preview = true">预览</button><span v-if="id" class="account-muted">文章编号 {{ id }}</span></div>
       <div class="account-save-feedback" :data-state="saveState" role="status" aria-live="polite"><strong>{{ ({ unsaved: '未保存', saving: '保存中…', saved: '已保存', failed: '保存失败 · 自动保存已暂停' })[saveState] }}</strong><span>{{ lastSavedAt ? `最近成功：${time(lastSavedAt)}` : article?.status === 'PUBLISHED' ? '公开文章需手动确认保存。' : article?.status === 'PENDING' ? '待审内容已锁定。' : '输入停止后自动保存草稿；未通过校验时保留本机备份。' }}</span><p v-if="validation">{{ validation }}</p></div>
-      <p v-if="!editable" class="account-notice">{{ !currentUser ? '请重新登录后继续编辑，当前输入与本地草稿仍保留。' : article?.status === 'PENDING' ? '待审核内容已锁定。作者可撤回后修改。' : '已发布或下架文章由管理员处理，当前仅可查看。' }}</p>
+      <p v-if="!editable" class="account-notice">{{ authStatus !== 'authenticated' ? '身份尚未确认或会话不可用，保存已暂停，输入与本地草稿仍保留。' : article?.status === 'PENDING' ? '待审核内容已锁定。作者可撤回后修改。' : '已发布或下架文章由管理员处理，当前仅可查看。' }}</p>
       <p v-if="article?.status === 'PUBLISHED' && admin" class="account-notice">公开文章不会自动保存。点击“保存并更新公开文章”确认后，修改立即对访客生效。</p>
       <form v-show="!preview" class="account-editor-form" @submit.prevent="save"><fieldset :disabled="!editable || freeze"><label>文章标题<input v-model="form.title" required maxlength="255" /></label><label>摘要<textarea v-model="form.summary" required maxlength="2000" rows="3"></textarea></label>
         <label>分类<select v-model="form.categoryId"><option v-for="category in options.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></label>
@@ -149,7 +174,7 @@ onBeforeUnmount(() => { saver.dispose(); window.removeEventListener('beforeunloa
       </fieldset></form>
       <article v-show="preview" class="account-preview"><span class="account-badge">文章预览</span><h1>{{ form.title || '未填写标题' }}</h1><p>{{ form.summary }}</p><section v-for="(section, index) in form.sections" :key="index"><component :is="`h${section.level || 2}`">{{ section.heading }}</component><p v-for="(paragraph, p) in section.paragraphs" :key="p">{{ paragraph }}</p><ul v-if="section.bullets?.length"><li v-for="(bullet, b) in section.bullets" :key="b">{{ bullet }}</li></ul><ArticleCodeBlock v-if="section.code" :code="section.code" :language="section.codeLanguage" :label="section.heading" /></section></article>
     </section>
-    <aside class="account-editor-aside"><section class="account-card"><h2>文章操作</h2><button v-if="editable" class="account-button primary" :disabled="busy || !!serverVersion" @click="save">{{ busy ? '处理中…' : article?.status === 'PUBLISHED' ? '保存并更新公开文章' : '保存草稿' }}</button><button v-if="article && ['DRAFT', 'REJECTED'].includes(article.status) && !admin" class="account-button" :disabled="busy || !!serverVersion" @click="action('submit')">保存最新内容并提交审核</button><button v-if="article?.status === 'PENDING' && article.authorId === currentUser?.id" class="account-button" :disabled="busy" @click="action('withdraw')">撤回投稿</button>
+    <aside class="account-editor-aside"><section class="account-card"><h2>文章操作</h2><button v-if="editable" class="account-button primary" :disabled="busy || !!serverVersion" @click="save">{{ busy ? '处理中…' : article?.status === 'PUBLISHED' ? '保存并更新公开文章' : '保存草稿' }}</button><button v-if="article && ['DRAFT', 'REJECTED'].includes(article.status) && !admin" class="account-button" :disabled="!editable || busy || !!serverVersion" @click="action('submit')">保存最新内容并提交审核</button><button v-if="article?.status === 'PENDING' && article.authorId === currentUser?.id" class="account-button" :disabled="authStatus !== 'authenticated' || currentUser?.id !== owner || busy" @click="action('withdraw')">撤回投稿</button>
       <template v-if="admin && article"><button v-if="['DRAFT', 'REJECTED', 'ARCHIVED'].includes(article.status)" class="account-button primary" :disabled="busy || !!serverVersion" @click="action('publish')">直接发布</button><template v-if="article.status === 'PENDING'"><button class="account-button primary" :disabled="busy" @click="action('approve')">批准并发布</button><label>驳回原因<textarea v-model="reason" rows="4" maxlength="2000" :disabled="busy"></textarea></label><button class="account-button danger" :disabled="busy" @click="action('reject')">驳回投稿</button></template><button v-if="article.status === 'PUBLISHED'" class="account-button danger" :disabled="busy || dirty" @click="action('archive')">下架文章</button><fieldset :disabled="busy || dirty || !!serverVersion"><legend>展示设置</legend><label class="account-check"><input v-model="article.featured" type="checkbox" />推荐文章</label><label class="account-check"><input v-model="article.wide" type="checkbox" />横向推荐卡片</label><button class="account-button" @click="flags">保存展示设置</button></fieldset></template>
       <a v-if="article?.status === 'PUBLISHED'" class="account-button" :href="`./article.html?id=${article.id}`">查看公开页面</a><p class="account-muted">投稿时间：{{ time(article?.submittedAt) }}<br/>更新时间：{{ time(article?.updatedAt) }}<br/>时间按 Asia/Shanghai 展示。</p>
     </section><section v-if="article?.reviews.length" class="account-card"><h2>审核记录</h2><article v-for="review in article.reviews" :key="review.round" class="account-review"><strong>{{ ({ APPROVED: '审核通过', REJECTED: '已驳回', ARCHIVED: '已下架', PUBLISHED: '管理员直接发布' } as Record<string, string>)[review.decision] }}</strong><p v-if="review.reason">{{ review.reason }}</p><small>{{ review.reviewer }} · {{ time(review.reviewedAt) }}</small></article></section></aside>

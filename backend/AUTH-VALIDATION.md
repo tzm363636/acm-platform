@@ -1,5 +1,7 @@
 # 账户与投稿审核：实施与验证
 
+最新记录：2026-10-07 的登录连续性与部署复查见本文末尾。以下旧记录保留。
+
 日期：2026-10-06，Asia/Shanghai。测试使用明确的 Aiven development 环境与专用账号、文章。此记录不包含任何密码、哈希、会话令牌、数据库地址或完整连接字符串。
 
 前半部分保留初次认证与投稿交付的历史记录；当前账号、写作与审核优化的实施、文件与验收结果见本文末尾“账号、写作与审核体验优化”。
@@ -168,3 +170,71 @@ npm run build
 - 没有新增文章版本历史、批量批准、邮箱／短信／找回密码、管理员提权或真实判题。没有测量性能改善比例。
 - 没有提交、推送 GitHub 或部署公网网站。当前本地前后端运行，并使用既有 Aiven development 数据库。
 - 会话切换后发现本地开发服务停止，已用隐藏的本地 PowerShell 帮助进程重新启动；最后 HTTP 检查 Vue 首页和 Spring Boot 文章接口均为 200。后端重启后需要重新登录。最后尝试绑定浏览器错误页时被浏览器工具的协议安全策略阻止，因此没有声称完成这次重启后的 UI 复查；前述桌面／手机截图和流程验收是在重启前实际完成。
+
+## 登录连续性与用户体验（2026-10-07）
+
+### 范围、步骤和完成标准
+
+1. 复查认证、部署文档及页面入口，保持同源 `/api`、Session、CSRF、USER/ADMIN。验收：不增加认证体系或数据库结构，分别检查本地与公网。
+2. 统一身份状态、请求协调与跨标签页通知。验收：公开页面先显示内容，私人页面等待可信身份；迟到请求不能覆盖新账号；服务失败与未登录分开。
+3. 完善导航、密码字段、资料入口和草稿离开保护。验收：退出以服务器结果为准，输入保留、账号隔离，保存校验失败不离开，确认框和移动菜单支持键盘。
+4. 执行单元、真实 Aiven development、浏览器与响应式验证。验收：以下仅列实际执行内容，公网配置未应用不能算修复成功。
+
+权限矩阵沿用本文原表：访客只看公开内容；USER 只操作本人资料及稿件；ADMIN 才能管理与审核。后端仍强制校验，既有审核、revision、改密凭据版本和 OJ DEMO 隔离未改。
+
+### 实际改动
+
+- `account/auth.ts`：五种身份状态、单一在途身份请求、身份变化时旧响应失效、焦点与历史缓存复核、同源标签页失效信号、服务失败保留最后身份提示。
+- `account/identityEpoch.ts` 与 `api/client.ts`：身份代次保护；旧 401 不影响新登录，等待 CSRF 时切换账号取消私人写请求；CSRF 失败可手动重试且不自动重放。登录错误的 401 与会话失效的 401 区分。
+- `Navbar.vue`、`AccountApp.vue`：稳定身份占位、统一菜单、退出不强制跳页、私人页面等待认证；跨标签页确认中隐藏私人内容而保留编辑器实例，不提前显示无权限。
+- `ArticleEditor.vue`、`leaveGuard.ts`、确认框：保存／本地保留／取消，离开请求合并；失败保留输入，身份变化暂停保存，不同账号隐藏原稿，同账号恢复后手动继续保存。
+- `PasswordField.vue`、`AuthPage.vue`、`ProfilePage.vue`：密码显示／隐藏、Caps Lock 提示、autocomplete、提交防重；已登录的登录页提供继续入口；注册成功但登录失败时不重复注册；最近文章与审核状态读取已有摘要接口。
+- `router/index.ts`：修复直接打开 `/index.html` 时首页空白，保留 `/` 和多页面架构。
+- `oj/OjApp.vue`：仅修正真实身份确认中／服务异常的提示，不提前显示未登录；演示流程、身份、草稿与记录仍独立。
+- `scripts/Check-Render.ps1`：增加实际 Cookie `Path=/` 检查。
+
+### 已执行的检查
+
+| 检查 | 实际结果 |
+|---|---|
+| `npm run test:session` | 23 项通过；迟到响应／401、并发身份查询、焦点去重、跨标签页、服务失败、退出失败、账号切换取消写请求、安全返回、离开确认及注册后登录失败的重试 |
+| `npm run test:api` | 11 项通过；CSRF、HTML 代理错误、认证消息、超时／网络／服务失败区分 |
+| `npm run test:writing` | 10 项通过；防抖、旧响应、新输入、单一写入者、失败保留、正文语言回退 |
+| `npm run test:oj` | 12 项通过；演示隔离、快照、草稿、异常和分页 |
+| `npm run build` | vue-tsc 与 Vite 通过；保留已有 OJ 编辑器 500KB 以上分块提示 |
+| 默认 `mvn test` | 共 22 项，16 项通过，6 项显式云测试跳过；0 失败、0 错误 |
+| 显式云测试 | `AuthCloudTest` 1 项＋`AccountExperienceCloudTest` 2 项，真实 Aiven development 全部通过、0 跳过；专用事务数据回滚，涵盖注册、会话轮换、CSRF、越权、投稿审核、资料和改密旧会话失效 |
+| 本地 HTTP 验收 | 19 项通过；Vue `/api`→Spring Boot→Aiven，USER/ADMIN、公开文章、401/403、CSRF、会话轮换、身份查询与退出；未改密码或业务内容 |
+| 实际本地 Cookie | 从前端 proxy 响应确认 `Path=/`、HttpOnly、SameSite=Lax；开发 HTTP 的 Secure=false。公网 Secure/透传未通过验收 |
+| 公网只读复查 | curl：后端 capabilities HTTP 200，database/login=false；前端 CSRF HTTP 404。PowerShell 另出现过一次没有 HTTP 响应的本机网络失败，未当作服务器状态 |
+
+### 浏览器实际流程
+
+- 专用 USER 和既有 ADMIN 分别打开首页、代码分享、文章、作者、网站介绍、成长足迹、OJ、个人资料；刷新和同源新标签页身份保持。ADMIN 控制台可读，USER 直接打开显示没有管理员权限。
+- 登录返回 OJ 带 query/hash 的来源，另一轮返回代码分享的标签筛选；已登录访问登录页显示当前身份与继续入口，隐藏重复登录表单。
+- 另一个标签页退出，公开页面留在原地址和标签筛选，原标签页草稿保留并禁用保存；换成另一个账号后原编辑器隐藏。重新登录原账号，文本恢复并可手动保存。
+- 资料页退出后隐藏旧账号的私人内容，保留组件内输入并显示带原来源的重新登录入口；最后浏览器复查确认资料标题不可见。
+- 专用测试账号改名在另一标签页同步，稿件输入保留；完成后已恢复原显示名称。未修改既有账号密码。
+- 新建专用私有 DRAFT「登录连续性验收 20261007」；取消离开、无效摘要保存后离开被阻止、保留本地后离开、重新打开恢复，均实际验证。原有已发布文章未修改；该测试草稿保留，未删除或公开发布。
+- 停止本轮自己的本地后端验证保存连接失败：结束加载、显示重试、保留输入并暂停自动保存。恢复同配置后端后，旧内存会话失效，重试得到会话过期；同账号重新登录后手动重试成功，最新摘要与正文保存。没有停止 Aiven 或关闭 TLS 校验。
+- 开发联调中一次数据库连接暂不可用返回 503，输入保留；恢复本地连接后重试成功。重启后旧 CSRF 登录失败，手动重试重新获取令牌后成功。没有把服务故障显示为密码错误。
+- 320px、390px 的登录、资料、稿件页面实际测量整页宽度不大于 viewport；默认桌面 1280px 验证。移动账号菜单 Escape 关闭并恢复焦点，USER 菜单没有管理员入口；密码显示按钮用无敏感测试文本验证。
+- 公开文章目录定位 hash 与代码复制成功；OJ 固定演示运行及手机题目／代码／结果切换回归，原代码、测试输入保持。运行只显示固定场景，没有创建正式 AC。
+
+截图保存于被 Git 忽略的 `.qa`：`session-leave-desktop.png`、`session-draft-network-error.png`、`session-profile-desktop.png`、`session-profile-320.png`、`session-profile-390.png`、`session-login-320.png`、`session-editor-390.png`、`session-private-logout.png`。这些是本地前后端连接 Aiven 的证据，不是公网部署证据。
+
+### 文件清单
+
+新增：`frontend/src/account/identityEpoch.ts`、`leaveGuard.ts`、`PasswordField.vue`，`frontend/scripts/test-session.mjs`。
+
+修改：`frontend/src/account/auth.ts`、`AccountApp.vue`、`AuthPage.vue`、`ArticleEditor.vue`、`ProfilePage.vue`、`confirmation.ts`、`ConfirmationDialog.vue`；`frontend/src/api/client.ts`；`frontend/src/components/Navbar.vue`；`frontend/src/oj/OjApp.vue`；`frontend/src/router/index.ts`；`frontend/src/styles/account.css`；`frontend/package.json`；`frontend/scripts/test-api.mjs`；`scripts/Check-Render.ps1`；`backend/AUTH.md`、`backend/AUTH-VALIDATION.md`、`RENDER.md`。
+
+没有修改已执行迁移，没有新增迁移／表／后端依赖，也没有增加前端依赖。没有提交、推送或部署。
+
+### 依赖、限制与安全说明
+
+- 公网仍需在 Render 应用 `aiven,render`、后端 DB_* 与 CA Secret File，以及前端 `/api/*` Rewrite；步骤见 `RENDER.md`。仅保存仓库配置不能应用已有服务。生产 Cookie、POST、公网登录与跨页面流程未执行成功验收。
+- 单实例内存 Session、30 分钟期限不变。后端重启需重新登录；没有长期记住登录、持久 Session、多实例共享或 Redis。
+- 慢身份请求和请求竞态用隔离 adapter 实际验证；没有测量性能百分比，也没有使用浏览器网络节流作量化基准。操作系统减少动态效果、物理 Caps Lock 切换及浏览器菜单“复制标签页”未单独实测；沿用减少动效规则，Caps Lock 读取有兼容性保护。
+- 浏览器验证发现密码字段的非标准事件触发错误，开发 Vue 错误日志曾包含专用测试账号密码。已经提醒更换该测试账号密码，修复触发错误并验证控件无新增错误；未输出管理员密码、Cookie、CSRF 或数据库凭据。遵守本次不修改既有密码的约束，测试账号密码未擅自更换，仍应由用户更换；今后不输出原始组件日志。
+- 既有 Aiven CA／信任库／私有配置及截图继续被 Git 忽略。没有向 Render 公网发送登录凭据，没有关闭证书校验。

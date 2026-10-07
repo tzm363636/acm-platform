@@ -12,10 +12,11 @@ const check = (name, fn) => { fn(); console.log('PASS ' + name); checks++ }
 globalThis.window = { dispatchEvent: () => {} }
 try {
   await writeFile(join(dir, 'package.json'), '{"type":"module"}')
-  for (const file of ['errors', 'client', 'database']) {
-    const source = await readFile(new URL(`../src/api/${file}.ts`, import.meta.url), 'utf8')
+  for (const file of ['errors', 'client', 'database', 'identityEpoch']) {
+    const source = await readFile(new URL(`../src/${file === 'identityEpoch' ? 'account' : 'api'}/${file}.ts`, import.meta.url), 'utf8')
     const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText
       .replaceAll("'./errors'", "'./errors.js'").replaceAll("'./client'", "'./client.js'")
+      .replaceAll("'../account/identityEpoch'", "'./identityEpoch.js'")
       .replace("'axios'", JSON.stringify(import.meta.resolve('axios')))
       .replace("import.meta.env.VITE_DATA_SOURCE === 'api'", 'true')
     await writeFile(join(dir, `${file}.js`), code)

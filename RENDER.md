@@ -118,3 +118,13 @@ Secret File、变量及网络监听说明来自 [Render environment variables](h
 4. 从仓库根目录执行 `./scripts/Check-Render.ps1`；全部通过后，再按第 3 节用现有账号验收公网登录、刷新、权限与退出。
 
 无需重建数据库、重新注册管理员或更改现有账号密码。尚未实际执行的公网部署与验收不记为完成。
+
+## 登录连续性本轮交付（2026-10-07）
+
+本地实现共享身份状态、旧请求失效保护、多标签页同步、草稿账号隔离、密码显示按钮和失败重试；这些变更没有发布到公网。本轮独立 curl 复查：后端 capabilities HTTP 200，database/login 仍为 false；前端 `/api/auth/csrf` HTTP 404。因此截图中的“登录接口不可用”仍有明确的部署阻塞，并非改密码能解决。
+
+Windows PowerShell 公网验收脚本还出现过一次未收到 HTTP 响应；独立 curl 收到上述确定状态。没有关闭 TLS 校验，没有向公网发送账号密码。`Check-Render.ps1` 现在同时检查 Cookie `Path=/`，避免 Cookie 只覆盖部分路径。真正的公网 Secure Cookie、POST 透传及登录连续性仍须在你应用第 1、2 节配置之后验证。
+
+自行推送、应用既有服务配置后运行 `./scripts/Check-Render.ps1`，再用 USER 和 ADMIN 从前端域名登录，依次打开各页面、刷新、新开同源标签页、退出和重新登录。后端仅健康检查成功不足以验收；需要 capabilities 的 database/login 为 true。内存 Session 只保证有效会话内的连续使用，后端重启仍需重新登录。
+
+本轮没有提交、推送、部署，也没有执行数据库迁移或修改既有账号密码。完整本地验证、修改文件及限制见 `backend/AUTH-VALIDATION.md` 的最新章节。

@@ -63,6 +63,7 @@ $sameOrigin=$null -ne $r.FinalUri -and $r.FinalUri.GetLeftPart([UriPartial]::Aut
 Check 'same-origin CSRF endpoint' ($valid -and $sameOrigin)
 $cookies=[string]$r.Headers['Set-Cookie']
 Check 'HttpOnly Secure SameSite=Lax session cookie' ($cookies -match 'HttpOnly' -and $cookies -match 'Secure' -and $cookies -match 'SameSite=Lax')
+Check 'session cookie covers all site pages (Path=/)' ($cookies -match 'Path=/($|;)')
 if ($valid -and $sameOrigin) {
   # Anonymous logout only tests POST forwarding/authorization. It cannot alter business data.
   $result=Request "$base/api/auth/logout" 'POST' $session @{'X-CSRF-TOKEN'=$csrf.token}
