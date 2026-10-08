@@ -39,11 +39,21 @@ public class PlatformRepository {
   long internal=rs.getLong("id");
   return map("id",rs.getLong("public_id"),"title",rs.getString("title"),"summary",rs.getString("summary"),"category",rs.getString("category"),
    "tags",tags("article_tags","article_id",internal),"preview",parse(rs.getString("preview")),"sections",parse(rs.getString("body")),
-   "featured",rs.getBoolean("featured"),"wide",rs.getBoolean("wide"),"author",rs.getString("author"),"authorProfile","site-author".equals(rs.getString("author_public_id"))?"./author.html":null,"publishedAt",utc(rs,"published_at"));
+   "featured",rs.getBoolean("featured"),"wide",rs.getBoolean("wide"),"author",rs.getString("author"),"authorProfile","site-author".equals(rs.getString("author_public_id"))?"./author.html":null,"publishedAt",utc(rs,"published_at"),"updatedAt",utc(rs,"updated_at"));
  }
  static final String ARTICLE_FROM=" FROM articles a JOIN categories c ON c.id=a.category_id JOIN users u ON u.id=a.author_id ";
  @Transactional(readOnly=true)
  public Page<Map<String,Object>> articles(String q,String category,String tag,String layout,int page,int size){
+  return articles(q,category,tag,layout,page,size,"id");
+ }
+ public Page<Map<String,Object>> articles(String q,String category,String tag,String layout,int page,int size,String sort){
+  String ordered=switch(sort){
+   case "id" -> "a.public_id ASC";
+   case "recommended" -> "a.featured DESC,a.wide DESC,a.public_id ASC";
+   case "published" -> "a.published_at DESC,a.id DESC";
+   case "updated" -> "a.updated_at DESC,a.id DESC";
+   default -> throw bad("无效文章排序条件。");
+  };
   Map<String,Object> args=map("q",like(q),"category",category,"tag",tag);
   String where=" WHERE a.status='PUBLISHED'";
   if(!q.isBlank()) where+=" AND (a.title LIKE :q ESCAPE '!' OR a.summary LIKE :q ESCAPE '!' OR c.name LIKE :q ESCAPE '!' OR EXISTS(SELECT 1 FROM article_tags atg JOIN tags t ON t.id=atg.tag_id WHERE atg.article_id=a.id AND t.name LIKE :q ESCAPE '!'))";
@@ -52,10 +62,27 @@ public class PlatformRepository {
   where+=switch(layout){case "featured"->" AND a.featured=TRUE";case "wide"->" AND a.wide=TRUE AND a.featured=FALSE";case "regular"->" AND a.featured=FALSE AND a.wide=FALSE";case ""->"";default->throw bad("无效文章布局筛选。");};
   long total=count("SELECT COUNT(*)"+ARTICLE_FROM+where,args);size=Page.size(size);page=Page.current(page,total,size);
   args.put("limit",size);args.put("offset",(page-1)*size);
-  return Page.of(jdbc.query("SELECT a.*,c.name category,u.display_name author,u.public_id author_public_id"+ARTICLE_FROM+where+" ORDER BY a.public_id LIMIT :limit OFFSET :offset",args,this::articleRow),page,size,total);
+  // Never read body or review history for a public list. Fetch this page's tags in one query.
+  List<Long> ids=new ArrayList<>();
+  var items=jdbc.query("SELECT a.id,a.public_id,a.title,a.summary,a.preview,a.featured,a.wide,a.published_at,a.updated_at,c.name category,u.display_name author,u.public_id author_public_id"+ARTICLE_FROM+where+" ORDER BY "+ordered+" LIMIT :limit OFFSET :offset",args,(rs,n)->{
+   ids.add(rs.getLong("id"));
+   return map("id",rs.getLong("public_id"),"title",rs.getString("title"),"summary",rs.getString("summary"),"category",rs.getString("category"),"preview",parse(rs.getString("preview")),"featured",rs.getBoolean("featured"),"wide",rs.getBoolean("wide"),"author",rs.getString("author"),"authorProfile","site-author".equals(rs.getString("author_public_id"))?"./author.html":null,"publishedAt",utc(rs,"published_at"),"updatedAt",utc(rs,"updated_at"));
+  });
+  Map<Long,List<String>> grouped=new HashMap<>();
+  if(!ids.isEmpty())jdbc.query("SELECT x.article_id,t.name FROM article_tags x JOIN tags t ON t.id=x.tag_id WHERE x.article_id IN (:ids) ORDER BY x.article_id,x.position",Map.of("ids",ids),(rs,n)->{grouped.computeIfAbsent(rs.getLong(1),k->new ArrayList<>()).add(rs.getString(2));return 0;});
+  for(int i=0;i<items.size();i++)items.get(i).put("tags",grouped.getOrDefault(ids.get(i),List.of()));
+  return Page.of(items,page,size,total);
  }
  public Optional<Map<String,Object>> article(long id){return jdbc.query("SELECT a.*,c.name category,u.display_name author,u.public_id author_public_id"+ARTICLE_FROM+" WHERE a.public_id=:id AND a.status='PUBLISHED'",Map.of("id",id),this::articleRow).stream().findFirst();}
- public Object articleOptions(){return Map.of("categories",jdbc.queryForList("SELECT DISTINCT c.name FROM categories c JOIN articles a ON a.category_id=c.id WHERE a.status='PUBLISHED' ORDER BY c.name",Map.of(),String.class),"tags",jdbc.queryForList("SELECT DISTINCT t.name FROM tags t JOIN article_tags x ON x.tag_id=t.id JOIN articles a ON a.id=x.article_id WHERE a.status='PUBLISHED' ORDER BY t.name",Map.of(),String.class));}
+ public Map<String,Object> articleOptions(){
+  var counts=jdbc.query("SELECT c.name,COUNT(*) total FROM categories c JOIN articles a ON a.category_id=c.id WHERE a.status='PUBLISHED' GROUP BY c.id,c.name ORDER BY c.name",Map.of(),(r,n)->map("name",r.getString(1),"total",r.getLong(2)));
+  return map("categories",counts.stream().map(c->c.get("name")).toList(),"tags",jdbc.queryForList("SELECT DISTINCT t.name FROM tags t JOIN article_tags x ON x.tag_id=t.id JOIN articles a ON a.id=x.article_id WHERE a.status='PUBLISHED' ORDER BY t.name",Map.of(),String.class),"publishedTotal",counts.stream().mapToLong(c->((Number)c.get("total")).longValue()).sum(),"categoryCount",counts.size());
+ }
+ // One read transaction keeps the page and public metadata consistent. No shared/private cache.
+ public Object articleFeed(String q,String category,String tag,String layout,int page,int size,String sort){
+  var result=articles(q,category,tag,layout,page,size,sort);
+  return map("items",result.items(),"page",result.page(),"pages",result.pages(),"start",result.start(),"end",result.end(),"total",result.total(),"size",result.size(),"options",articleOptions());
+ }
  Map<String,Object> problemRow(ResultSet rs,int row) throws SQLException {
   long internal=rs.getLong("id");
   return map("id",rs.getString("public_id"),"title",rs.getString("title"),"difficulty",rs.getString("difficulty"),"tags",tags("problem_tags","problem_id",internal),
