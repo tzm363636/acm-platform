@@ -72,3 +72,9 @@
 }
 @media (max-width: 600px) { .reading-page { padding: 24px 12px 64px; }.reading-header { padding-top: 30px; }.reading-body pre { padding: 16px; font-size: 11px; } }
 @media (max-width: 380px) { .entry-wrap { display: none; } }
+:root { --article-meta-color:#526b86; }
+.reading-dates { display:flex; flex-wrap:wrap; gap:8px 20px; margin-top:16px; color:var(--article-meta-color); font-size:14px; line-height:1.7; }
+.reading-dates small { align-self:center; font-size:13px; }
+.reading-skeleton { width:min(100%,680px); min-height:260px; padding-top:24px; }
+.reading-skeleton i { display:block; height:22px; margin:18px 0; background:#e8eef5; border-radius:8px; }
+.reading-skeleton i:last-child { width:65%; }

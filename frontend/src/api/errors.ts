@@ -4,9 +4,17 @@ export class ApiError extends Error {
   constructor(message: string, public status?: number) { super(message); this.name = 'ApiError' }
 }
 export function requestError(error: unknown, path: string): ApiError {
-  if (error instanceof ApiError) return error
+  const publicArticle = /^\/articles(?:\/|$)/.test(path) || path === '/article-options'
+  if (error instanceof ApiError) return publicArticle && error.message === deploymentMessage ? new ApiError('文章服务暂不可用，请稍后重试。', error.status) : error
   const failure = error as { response?: { status?: number; data?: { message?: unknown } }; config?: { url?: string }; code?: string }
   const status = failure?.response?.status, message = failure?.response?.data?.message
+  if (publicArticle) {
+    if (status === 404 && /^\/articles\//.test(path)) return new ApiError('文章不存在或已停止公开。', status)
+    if (failure?.code === 'ECONNABORTED' || failure?.code === 'ETIMEDOUT') return new ApiError('文章加载超时，请稍后重试。', status)
+    if ([502, 503, 504].includes(status || 0)) return new ApiError('文章服务暂不可用，请稍后重试。', status)
+    if (status === 401 || status === 403) return new ApiError('当前无法访问这篇文章。', status)
+    return new ApiError(typeof message === 'string' && message.trim() ? message : '文章加载失败，请检查网络后重试。', status)
+  }
   if (typeof message === 'string' && message.trim()) return new ApiError(message, status)
   if (status === 404 && (path.startsWith('/auth/') || failure?.config?.url?.startsWith('/auth/'))) {
     return new ApiError('登录接口不可用，请检查 /api 转发及后端 Aiven 认证配置。输入已保留。', status)

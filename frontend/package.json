@@ -10,7 +10,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "test:writing": "node scripts/test-writing.mjs",
     "test:api": "node scripts/test-api.mjs",
-    "test:session": "node scripts/test-session.mjs"
+    "test:session": "node scripts/test-session.mjs",
+    "test:content": "node scripts/test-content.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.11.1",

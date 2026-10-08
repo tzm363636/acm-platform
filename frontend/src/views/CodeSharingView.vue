@@ -1,170 +1,109 @@
 <script setup lang="ts">
 import UiIcon from '../components/UiIcon.vue'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRef, watch } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import { concealLeavingSurface } from '../composables/surfaceTransition'
+import { articles as offlineArticles, articleUrl } from '../data/articles'
+import { databaseMode, getData } from '../api/database'
+import { articleTime, createPublicFeed, readSharingQuery, sharingSearch, type ArticleFeed, type SharingQuery } from '../composables/publicArticles'
 
-import { articles as offlineArticles, articleUrl, type Article } from '../data/articles'
-import { databaseMode, getData, type ServerPage } from '../api/database'
-
-const categories = ref(['全部', '题解', '算法模板', '竞赛经验', '408笔记'])
-const hotTags = ref(['图论', '动态规划', '数据结构', '搜索', 'C++', '模板', '字符串', '最短路', '并查集', '树状数组', '竞赛经验', '408笔记'])
 const columns = [
   { name: '算法模板库', description: '常用算法模板整理，开箱即用', category: '算法模板', icon: 'book', color: 'orange' },
   { name: '408 知识整理', description: '数据结构、计算机组成原理等', category: '408笔记', icon: 'file', color: 'blue' },
   { name: '竞赛经验总结', description: '比赛复盘、心态调整与成长记录', category: '竞赛经验', icon: 'trophy', color: 'purple' },
 ]
-
-const initialParams = new URLSearchParams(window.location.search)
-const initialCategory = initialParams.get('category') || '全部'
-const initialTag = initialParams.get('tag') === 'DP' ? '动态规划' : initialParams.get('tag') || ''
-const activeCategory = ref(databaseMode || categories.value.includes(initialCategory) ? initialCategory : '全部')
-const activeTag = ref(databaseMode || hotTags.value.includes(initialTag) ? initialTag : '')
-const searchDraft = ref(initialParams.get('q') || '')
-const searchTerm = ref(searchDraft.value.trim())
-const showMore = ref(initialParams.get('more') === '1')
-const showAllTags = ref(initialParams.get('tags') === 'all')
-const searchOpen = ref(false)
-const navbar = ref<InstanceType<typeof Navbar> | null>(null)
-const headerSearchInput = ref<HTMLInputElement | null>(null)
+const filters = reactive(readSharingQuery(window.location.search))
+const activeCategory = computed({ get: () => filters.category || '全部', set: value => { filters.category = value === '全部' ? '' : value } })
+const activeTag = toRef(filters, 'tag'), searchTerm = toRef(filters, 'q'), showMore = toRef(filters, 'more'), showAllTags = toRef(filters, 'allTags')
+const searchDraft = ref(filters.q), searchOpen = ref(false)
+const navbar = ref<InstanceType<typeof Navbar> | null>(null), headerSearchInput = ref<HTMLInputElement | null>(null)
 const sidebar = ref<HTMLElement | null>(null)
-const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`
-const avatarUrl = `${import.meta.env.BASE_URL}author-avatar.jpg`
-let sidebarUpdate = 0
-const articles = ref<Article[]>(databaseMode ? [] : offlineArticles)
-const loading = ref(databaseMode);const loadError=ref('');const totalArticles=ref(offlineArticles.length)
-const regularTotal=ref(0);const filteredTotal=ref(0)
-let articleRequest=0;let preserveSidebar=false
-
-const isFiltering = computed(() => activeCategory.value !== '全部' || activeTag.value !== '' || searchTerm.value !== '')
-const filteredArticles = computed(() => databaseMode ? articles.value : articles.value.filter((article) => {
-  const categoryMatches = activeCategory.value === '全部' || article.category === activeCategory.value
-  const tagMatches = !activeTag.value || article.tags.includes(activeTag.value)
-  const search = searchTerm.value.toLocaleLowerCase() === 'dp' ? '动态规划' : searchTerm.value.toLocaleLowerCase()
-  const textMatches = !search || [article.title, article.summary, article.category, ...article.tags].join(' ').toLocaleLowerCase().includes(search)
-  return categoryMatches && tagMatches && textMatches
-}))
-const featuredArticle = computed(() => filteredArticles.value.find((article) => article.featured))
-const regularArticles = computed(() => filteredArticles.value.filter((article) => article.id !== featuredArticle.value?.id && article.id !== wideArticle.value?.id))
-const visibleArticles = computed(() => isFiltering.value || showMore.value ? regularArticles.value : regularArticles.value.slice(0, 4))
-const wideArticle = computed(() => filteredArticles.value.find((article) => article.wide && !article.featured))
-const visibleTags = computed(() => showAllTags.value ? hotTags.value : hotTags.value.slice(0, 10))
-const resultKey = computed(() => `${activeCategory.value}|${activeTag.value}|${searchTerm.value}|${showMore.value}`)
-const sharingQuery = computed(() => {
-  const params = new URLSearchParams()
-  if (activeCategory.value !== '全部') params.set('category', activeCategory.value)
-  if (activeTag.value) params.set('tag', activeTag.value)
-  if (searchTerm.value) params.set('q', searchTerm.value)
-  if (showMore.value) params.set('more', '1')
-  if (showAllTags.value) params.set('tags', 'all')
-  return params.toString()
+const mountainUrl = `${import.meta.env.BASE_URL}mountain-journey.svg`, avatarUrl = `${import.meta.env.BASE_URL}author-avatar.jpg`
+function contentKey(q: SharingQuery) { return JSON.stringify([q.q,q.category,q.tag,q.sort,q.page,q.size]) }
+const feed = createPublicFeed(async (q, signal) => {
+  if (databaseMode) return getData<ArticleFeed>('/articles', { q: q.q.toLowerCase() === 'dp' ? '动态规划' : q.q, category: q.category, tag: q.tag, sort: q.sort, page: q.page, size: q.size, includeOptions: true }, {}, { signal })
+  const term = q.q.toLowerCase() === 'dp' ? '动态规划' : q.q.toLowerCase()
+  const items = offlineArticles.filter(a => (!q.category || a.category === q.category) && (!q.tag || a.tags.includes(q.tag)) && (!term || [a.title,a.summary,a.category,...a.tags].join(' ').toLowerCase().includes(term)))
+    .sort((a,b) => {
+      if (q.sort === 'recommended') return Number(!!b.featured)-Number(!!a.featured) || Number(!!b.wide)-Number(!!a.wide) || a.id-b.id
+      const field = q.sort === 'published' ? 'publishedAt' : 'updatedAt'
+      return (Date.parse(b[field] || '') || 0)-(Date.parse(a[field] || '') || 0) || b.id-a.id
+    })
+  const total = items.length, pages = Math.max(1,Math.ceil(total/q.size)), page = Math.min(q.page,pages)
+  return { items: items.slice((page-1)*q.size,page*q.size), total, page, pages, size: q.size, start: total ? (page-1)*q.size+1 : 0, end: Math.min(page*q.size,total), options: { categories: [...new Set(offlineArticles.map(a=>a.category))], tags: [...new Set(offlineArticles.flatMap(a=>a.tags))], publishedTotal: offlineArticles.length, categoryCount: new Set(offlineArticles.map(a=>a.category)).size } }
 })
-const articleCount=computed(()=>databaseMode?filteredTotal.value:filteredArticles.value.length)
-const regularCount=computed(()=>databaseMode?regularTotal.value:regularArticles.value.length)
-async function loadArticles() {
- const version=++articleRequest;loading.value=true;loadError.value=''
- const q=searchTerm.value.toLocaleLowerCase()==='dp'?'动态规划':searchTerm.value
- const params={q,category:activeCategory.value==='全部'?'':activeCategory.value,tag:activeTag.value,page:1}
- try {
-  const [featured,regular,wide]=await Promise.all(['featured','regular','wide'].map(layout=>getData<ServerPage<Article>>('/articles',{...params,layout,size:layout==='regular'&&!isFiltering.value&&!showMore.value?4:100})))
-  if(version!==articleRequest)return
-  const previousTop=preserveSidebar?sidebar.value?.getBoundingClientRect().top:undefined
-  loading.value=false;articles.value=[...new Map([...featured.items,...regular.items,...wide.items].map(article=>[article.id,article])).values()];regularTotal.value=regular.total+Math.max(0,featured.total-1)+Math.max(0,wide.total-1);filteredTotal.value=featured.total+regular.total+wide.total
-  await nextTick()
-  if(version===articleRequest&&previousTop!==undefined&&sidebar.value){const change=sidebar.value.getBoundingClientRect().top-previousTop;if(Math.abs(change)>1)window.scrollBy({top:change,behavior:'instant'})}
-  preserveSidebar=false
- }catch(e){if(version===articleRequest)loadError.value=(e as Error).message}
- finally{if(version===articleRequest)loading.value=false}
-}
-watch(sharingQuery,()=>{if(databaseMode)void loadArticles()})
-onMounted(async()=>{if(databaseMode){void loadArticles();try{const opts=await getData<{categories:string[];tags:string[]}>('/article-options');categories.value=['全部',...opts.categories];hotTags.value=[...hotTags.value.filter(t=>opts.tags.includes(t)),...opts.tags.filter(t=>!hotTags.value.includes(t))];totalArticles.value=(await getData<ServerPage<Article>>('/articles',{size:1})).total}catch{ /* List error offers retry. */ }}})
-
-watch(sharingQuery, (query) => {
-  window.history.replaceState(window.history.state, '', `${window.location.pathname}${query ? `?${query}` : ''}`)
-}, { immediate: true })
-
+const { data, state } = feed
+const loading = computed(() => state.loading), loadError = computed(() => state.error)
+const categories = computed(() => ['全部', ...(data.value?.options.categories || []), ...(!data.value?.options.categories.includes(filters.category) && filters.category ? [filters.category] : [])])
+const hotTags = computed(() => data.value?.options.tags || [])
+const visibleTags = computed(() => showAllTags.value ? hotTags.value : hotTags.value.slice(0,10))
+const sharingQuery = computed(() => sharingSearch(filters))
+const isFiltering = computed(() => !!(filters.category || filters.tag || filters.q))
+const isStale = computed(() => !!data.value && contentKey(readSharingQuery(state.loadedKey)) !== contentKey(filters))
+const resultQuery = computed(() => isStale.value ? state.loadedKey : sharingQuery.value)
+const resultDescription = computed(() => {
+  const q = readSharingQuery(state.loadedKey)
+  return [q.category || '全部分类', q.tag, q.q && `搜索“${q.q}”`, `第 ${data.value?.page || 1} 页`].filter(Boolean).join(' · ')
+})
+const filteredArticles = computed(() => data.value?.items || [])
+const displayedFilters = computed(() => isStale.value ? readSharingQuery(state.loadedKey) : filters)
+const overview = computed(() => { const q = displayedFilters.value; return !q.q && !q.category && !q.tag && !q.more && q.sort === 'recommended' })
+const featuredArticle = computed(() => overview.value ? filteredArticles.value.find(a => a.featured) : undefined)
+const wideArticle = computed(() => overview.value ? filteredArticles.value.find(a => a.wide && !a.featured) : undefined)
+const visibleArticles = computed(() => filteredArticles.value.filter(a => a.id !== featuredArticle.value?.id && a.id !== wideArticle.value?.id))
+const articleCount = computed(() => data.value?.total)
+const totalArticles = computed(() => data.value?.options.publishedTotal)
+const categoryCount = computed(() => data.value?.options.categoryCount)
+let preserveSidebar = false, restoreTop: number | undefined, correctedKey = '', lastRefresh = 0, sidebarUpdate = 0, loadVersion = 0
 function saveListPosition() {
-  try {
-    sessionStorage.setItem('acm-sharing-position', JSON.stringify({ query: sharingQuery.value, top: window.scrollY }))
-  } catch { /* Navigation still works when browser storage is unavailable. */ }
+  try { sessionStorage.setItem('acm-sharing-position', JSON.stringify({ query: resultQuery.value, top: window.scrollY })) } catch { /* Navigation works without storage. */ }
 }
-
-onMounted(async () => {
-  window.addEventListener('pagehide', saveListPosition)
+async function loadArticles() {
+  const mine = ++loadVersion
+  let anchor: number | undefined
+  const accepted = await feed.load({ ...filters }, () => { anchor = preserveSidebar ? sidebar.value?.getBoundingClientRect().top : undefined })
+  if (!accepted) { if (mine === loadVersion) preserveSidebar = false; return }
+  if (filters.page !== data.value!.page) correctedKey = contentKey({ ...filters, page: data.value!.page })
+  filters.page = data.value!.page
+  lastRefresh = Date.now()
   await nextTick()
-  try {
-    const saved = JSON.parse(sessionStorage.getItem('acm-sharing-position') || 'null')
-    if (saved?.query === sharingQuery.value && Number.isFinite(saved.top)) {
-      window.scrollTo({ top: saved.top, behavior: 'instant' })
-    }
-  } catch { /* Invalid or unavailable storage should not block the page. */ }
-})
+  if (mine !== loadVersion) return
+  if (restoreTop !== undefined) { window.scrollTo({ top: restoreTop, behavior: 'instant' }); restoreTop = undefined }
+  else if (anchor !== undefined && sidebar.value) window.scrollBy({ top: sidebar.value.getBoundingClientRect().top-anchor, behavior: 'instant' })
+  preserveSidebar = false
+}
+watch(() => [filters.q,filters.category,filters.tag,filters.sort,filters.size], () => { filters.page = 1 }, { flush: 'sync' })
+watch(() => contentKey(filters), key => { if (key === correctedKey) { correctedKey = ''; return }; restoreTop = undefined; void loadArticles() })
+watch(sharingQuery, query => { window.history.replaceState(window.history.state,'',`${window.location.pathname}${query ? `?${query}` : ''}`) }, { immediate: true })
+function selectCategory(category: string) { activeCategory.value = category; showMore.value = false }
+function selectTag(tag: string) { void keepSidebarPosition(() => { activeTag.value = activeTag.value === tag ? '' : tag; showMore.value = false }) }
+function browseCategory(category: string) { void keepSidebarPosition(() => selectCategory(category)) }
+function clearFilters() { filters.q = ''; filters.category = ''; filters.tag = ''; filters.sort = 'recommended'; filters.page = 1; searchDraft.value = ''; showMore.value = false }
+function showAllArticles() { clearFilters(); showMore.value = true }
+async function keepSidebarPosition(update: () => void) {
+  const mine = ++sidebarUpdate
+  const key = contentKey(filters), anchor = sidebar.value?.getBoundingClientRect().top
+  preserveSidebar = true; update()
+  await nextTick()
+  if (mine !== sidebarUpdate) return
+  if (anchor !== undefined && sidebar.value) window.scrollBy({ top: sidebar.value.getBoundingClientRect().top-anchor, behavior: 'instant' })
+  if (key === contentKey(filters)) preserveSidebar = false
+}
+function goPage(page: number) { showMore.value = true; filters.page = page }
+function submitSearch() { searchTerm.value = searchDraft.value.trim(); showMore.value = false; if (searchOpen.value) closeSearch() }
 function closeSearch() { searchOpen.value = false; navbar.value?.focusSearchTrigger() }
 function escapeSearch(event: KeyboardEvent) { if (event.key === 'Escape' && searchOpen.value) { closeSearch(); event.preventDefault() } }
-onMounted(() => document.addEventListener('keydown', escapeSearch))
-onBeforeUnmount(() => { window.removeEventListener('pagehide', saveListPosition); document.removeEventListener('keydown', escapeSearch) })
-
-function selectCategory(category: string) {
-  activeCategory.value = category
-  showMore.value = false
-}
-
-function selectTag(tag: string) {
-  void keepSidebarPosition(() => {
-    if (activeTag.value === tag) {
-      showAllArticles()
-    } else {
-      activeTag.value = tag
-      showMore.value = false
-    }
-  })
-}
-
-async function keepSidebarPosition(update: () => void) {
-  if(databaseMode)preserveSidebar=true
-  const version = ++sidebarUpdate
-  const previousTop = sidebar.value?.getBoundingClientRect().top
-  update()
-  await nextTick()
-  // On narrow screens the results sit above the sidebar; keep the clicked controls in place.
-  if (version === sidebarUpdate && previousTop !== undefined && sidebar.value) {
-    const change = sidebar.value.getBoundingClientRect().top - previousTop
-    if (Math.abs(change) > 1) window.scrollBy({ top: change, behavior: 'instant' })
-  }
-}
-
-function browseCategory(category: string) {
-  void keepSidebarPosition(() => selectCategory(category))
-}
-
-function clearFilters() {
-  activeCategory.value = '全部'
-  activeTag.value = ''
-  searchTerm.value = ''
-  searchDraft.value = ''
-  showMore.value = false
-}
-
-function showAllArticles() {
-  clearFilters()
-  showMore.value = true
-}
-
-function submitSearch() {
-  searchTerm.value = searchDraft.value.trim()
-  showMore.value = false
-  if (searchOpen.value) closeSearch()
-}
-
-async function focusSearch() {
-  if (searchOpen.value) { closeSearch(); return }
-  searchOpen.value = true
-  if (searchOpen.value) {
-    await nextTick()
-    headerSearchInput.value?.focus({ preventScroll: true })
-  }
-}
+async function focusSearch() { if (searchOpen.value) return closeSearch(); searchOpen.value = true; await nextTick(); headerSearchInput.value?.focus({ preventScroll: true }) }
+function refreshOnReturn(event: Event) { if ((event.type === 'pageshow' && (event as PageTransitionEvent).persisted || event.type === 'focus' && Date.now()-lastRefresh > 10_000) && !loading.value) void loadArticles() }
+onMounted(() => {
+  try { const saved = JSON.parse(sessionStorage.getItem('acm-sharing-position') || 'null'); if (saved?.query === sharingQuery.value && Number.isFinite(saved.top)) restoreTop = saved.top } catch { /* Invalid storage is ignored. */ }
+  void loadArticles()
+  window.addEventListener('pagehide',saveListPosition); window.addEventListener('pageshow',refreshOnReturn); window.addEventListener('focus',refreshOnReturn)
+  document.addEventListener('keydown',escapeSearch)
+})
+onBeforeUnmount(() => { feed.dispose(); window.removeEventListener('pagehide',saveListPosition); window.removeEventListener('pageshow',refreshOnReturn); window.removeEventListener('focus',refreshOnReturn); document.removeEventListener('keydown',escapeSearch) })
 </script>
+
 
 <template>
   <svg class="icon-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -214,23 +153,25 @@ async function focusSearch() {
     <div class="cs-content-grid">
       <main id="recommendations" class="cs-results">
         <div class="cs-section-heading">
-          <div class="cs-section-title"><UiIcon name="spark" /><h2>{{ isFiltering ? '筛选结果' : '精选推荐' }}</h2><p>{{ isFiltering ? `找到 ${articleCount} 篇相关内容` : '优质的算法题解、模板与经验分享' }}</p></div>
-          <button v-if="!isFiltering && regularCount > 4" type="button" class="cs-more-link" @click="showMore = !showMore">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
+          <div class="cs-section-title"><UiIcon name="spark" /><h2>{{ isFiltering ? '筛选结果' : showMore || filters.sort !== 'recommended' ? '全部文章' : '精选推荐' }}</h2><p>优质的算法题解、模板与经验分享</p></div>
+          <button v-if="!isFiltering && filters.sort === 'recommended'" type="button" class="cs-more-link" @click="showMore ? (showMore = false, filters.page = 1) : (showMore = true)">{{ showMore ? '收起' : '查看全部文章' }} <svg class="cs-icon"><use href="#icon-arrow"/></svg></button>
         </div>
 
-        <div :key="resultKey" class="cs-results-content content-reveal">
+        <div class="cs-list-toolbar"><label>排序 <select v-model="filters.sort" aria-label="文章排序"><option value="recommended">推荐顺序</option><option value="published">最新发布 ↓</option><option value="updated">最近更新 ↓</option></select></label><button type="button" :disabled="loading" @click="loadArticles">{{ loading ? '更新中…' : '刷新文章与统计' }}</button></div>
+        <div class="cs-results-content" :aria-busy="loading">
         <div v-if="isFiltering" class="cs-active-filters" aria-label="已选筛选条件">
-          <span class="cs-result-count" role="status" aria-live="polite">{{ articleCount }} 篇文章</span>
+          <span class="cs-result-count">{{ isStale || !data ? '正在应用筛选条件' : `${articleCount} 篇文章` }}</span>
           <button v-if="activeCategory !== '全部'" type="button" :aria-label="`移除分类：${activeCategory}`" @click="selectCategory('全部')">{{ activeCategory }} <span aria-hidden="true">×</span></button>
           <button v-if="activeTag" type="button" :aria-label="`移除标签：${activeTag}`" @click="activeTag = ''">{{ activeTag }} <span aria-hidden="true">×</span></button>
           <button v-if="searchTerm" type="button" :aria-label="`移除搜索：${searchTerm}`" @click="searchTerm = ''; searchDraft = ''">关键词：{{ searchTerm }} <span aria-hidden="true">×</span></button>
           <button type="button" class="cs-clear-filters" @click="clearFilters">清除筛选</button>
         </div>
 
-        <p v-if="loading || loadError" class="cs-result-count" :role="loadError ? 'alert' : 'status'">{{ loadError || '正在查询文章…' }} <button v-if="loadError" type="button" @click="loadArticles">重试</button></p>
+        <div class="cs-load-feedback" role="status" aria-live="polite"><span>{{ loadError || (loading ? data ? '正在更新文章与统计…' : '正在加载文章…' : data ? `共 ${articleCount} 篇，当前 ${data.start}–${data.end}` : '') }}</span><button v-if="loadError" type="button" @click="loadArticles">重试</button><small v-if="data && (isStale || loadError)">仍显示上次成功结果：{{ resultDescription }}；下方内容与统计尚未更新。</small></div>
+        <div v-if="!data && loading" class="cs-skeletons" aria-label="文章正在加载"><div v-for="n in 3" :key="n" class="cs-skeleton" aria-hidden="true"><i></i><i></i><i></i></div></div>
         <div v-if="!loading && !loadError && filteredArticles.length === 0" class="cs-empty"><strong>暂时没有找到相关内容</strong><p>试试其他关键词，或移除部分筛选条件。</p><button type="button" @click="showAllArticles">查看全部文章</button></div>
 
-        <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id, sharingQuery)" :aria-label="`阅读文章：${featuredArticle.title}`" @click="saveListPosition">
+        <a v-if="featuredArticle" class="cs-featured-card" :href="articleUrl(featuredArticle.id, resultQuery)" :aria-label="`阅读文章：${featuredArticle.title}`" @click="saveListPosition">
           <div class="cs-code-preview cs-code-preview-dark">
             <span class="cs-hot-badge">精选</span>
             <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -241,11 +182,12 @@ async function focusSearch() {
             <p>{{ featuredArticle.summary }}</p>
             <div class="cs-article-tags"><span v-for="tag in featuredArticle.tags" :key="tag">{{ tag }}</span></div>
             <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ featuredArticle.author || '田振民' }}</span><span>阅读全文 →</span></div>
+            <small class="cs-article-time">发布：{{ articleTime(featuredArticle.publishedAt) }}<br v-if="displayedFilters.sort === 'updated'"/><span v-if="displayedFilters.sort === 'updated'">更新：{{ articleTime(featuredArticle.updatedAt) }}</span></small>
           </div>
         </a>
 
         <div v-if="visibleArticles.length" class="cs-article-grid">
-          <a v-for="article in visibleArticles" :key="article.id" class="cs-article-card" :href="articleUrl(article.id, sharingQuery)" :aria-label="`阅读文章：${article.title}`" @click="saveListPosition">
+          <a v-for="article in visibleArticles" :key="article.id" class="cs-article-card" :href="articleUrl(article.id, resultQuery)" :aria-label="`阅读文章：${article.title}`" @click="saveListPosition">
             <div class="cs-code-preview cs-code-preview-light">
               <div class="cs-window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
               <div class="cs-code-lines"><div v-for="(line, index) in article.preview" :key="index"><span>{{ index + 1 }}</span><code>{{ line }}</code></div></div>
@@ -255,14 +197,16 @@ async function focusSearch() {
               <p>{{ article.summary }}</p>
               <div class="cs-article-tags"><span v-for="tag in article.tags.slice(0, 4)" :key="tag">{{ tag }}</span></div>
               <div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ article.author || '田振民' }}</span><span>阅读全文 →</span></div>
+              <small class="cs-article-time">{{ displayedFilters.sort === 'updated' ? '更新' : '发布' }}：{{ articleTime(displayedFilters.sort === 'updated' ? article.updatedAt : article.publishedAt) }}</small>
             </div>
           </a>
         </div>
 
-        <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id, sharingQuery)" :aria-label="`阅读文章：${wideArticle.title}`" @click="saveListPosition">
+        <a v-if="wideArticle" class="cs-wide-card" :href="articleUrl(wideArticle.id, resultQuery)" :aria-label="`阅读文章：${wideArticle.title}`" @click="saveListPosition">
           <img :src="mountainUrl" alt="登山者站在山峰上迎接日出" />
-          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ wideArticle.author || '田振民' }}</span><span>阅读全文 →</span></div></div>
+          <div class="cs-wide-body"><h3>{{ wideArticle.title }}</h3><p>{{ wideArticle.summary }}</p><div class="cs-article-tags"><span v-for="tag in wideArticle.tags" :key="tag">{{ tag }}</span></div><div class="cs-article-meta"><span><svg class="cs-icon"><use href="#icon-user"/></svg> {{ wideArticle.author || '田振民' }}</span><span>阅读全文 →</span></div><small class="cs-article-time">发布：{{ articleTime(wideArticle.publishedAt) }}</small></div>
         </a>
+        <nav v-if="data" class="cs-pagination" aria-label="文章分页"><span>第 {{ data.page }} / {{ data.pages }} 页 · 共 {{ data.total }} 篇</span><div><button type="button" :disabled="loading || !!loadError || isStale || data.page <= 1" @click="goPage(data.page - 1)">上一页</button><button type="button" :disabled="loading || !!loadError || isStale || data.page >= data.pages" @click="goPage(data.page + 1)">下一页</button></div><label>每页 <select v-model.number="filters.size" aria-label="每页文章数"><option :value="6">6 篇</option><option :value="12">12 篇</option><option :value="24">24 篇</option></select></label></nav>
         </div>
       </main>
 
@@ -280,7 +224,7 @@ async function focusSearch() {
         <section class="cs-side-card cs-author-card">
           <div class="cs-side-heading"><h2><UiIcon name="user" /> 关于作者</h2><a class="cs-side-link" href="./author.html">查看更多 <svg class="cs-icon"><use href="#icon-arrow"/></svg></a></div>
           <div class="cs-author-profile"><img class="cs-avatar" :src="avatarUrl" alt="田振民的头像" width="68" height="68" /><div><h3>田振民</h3><p>软件工程专业学生，热爱算法、编程与技术探索。</p></div></div>
-          <div class="cs-author-stats"><div><strong>{{ totalArticles }}</strong><span>站内文章</span></div><div><strong>4</strong><span>内容分类</span></div></div>
+          <div class="cs-author-stats"><div><strong>{{ totalArticles ?? '—' }}</strong><span>全站已发布文章</span></div><div><strong>{{ categoryCount ?? '—' }}</strong><span>有公开文章的分类</span></div></div><p class="cs-stat-note" v-if="loadError">{{ data ? '上次成功读取的统计，刷新后更新。' : '统计暂不可用，请重试文章加载。' }}</p>
         </section>
 
         <div class="cs-side-banner" :style="{ backgroundImage: `url(${mountainUrl})` }"><strong>在代码中<br />遇见更好的自己</strong><span aria-hidden="true"></span></div>

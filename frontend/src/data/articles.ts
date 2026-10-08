@@ -7,19 +7,21 @@ export type ArticleSection = {
   codeLanguage?: string | null
 }
 
-export type Article = {
+export type ArticleSummary = {
   id: number
   title: string
   summary: string
   category: string
   tags: string[]
   preview: string[]
-  sections: ArticleSection[]
   featured?: boolean
   wide?: boolean
   author?: string
   authorProfile?: string | null
+  publishedAt?: string | null
+  updatedAt?: string | null
 }
+export type Article = ArticleSummary & { sections: ArticleSection[] }
 
 export const articles: Article[] = [
   {

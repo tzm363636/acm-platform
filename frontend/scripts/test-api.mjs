@@ -65,12 +65,19 @@ try {
   check('explicit retry fetches a new token after expiry', () => assert.equal(calls.filter(c => c.url === '/auth/csrf').length, 1))
   check('server credential and article errors preserve their message/status', () => {
     assert.equal(requestError({ response: { status: 401, data: { message: '用户名或密码错误。' } } }, '/auth/login').message, '用户名或密码错误。')
-    assert.equal(requestError({ response: { status: 404, data: { message: '文章不存在。' } } }, '/articles/999').message, '文章不存在。')
+    assert.equal(requestError({ response: { status: 404, data: { message: '文章不存在。' } } }, '/articles/999').message, '文章不存在或已停止公开。')
   })
   check('timeout, service outage and network failures have distinct feedback', () => {
     assert.match(requestError({ code: 'ECONNABORTED' }, '/auth/me').message, /超时/)
     assert.match(requestError({ response: { status: 503 } }, '/auth/me').message, /暂不可用/)
     assert.match(requestError({ code: 'ERR_NETWORK' }, '/auth/me').message, /无法连接/)
+  })
+  check('public read failures use article feedback and preserve status', () => {
+    assert.match(requestError({ code: 'ECONNABORTED' }, '/articles').message, /文章加载超时/)
+    assert.match(requestError({ response: { status: 503 } }, '/articles').message, /文章服务暂不可用/)
+    assert.match(requestError({ code: 'ERR_NETWORK' }, '/articles').message, /文章加载失败/)
+    assert.equal(requestError({ response: { status: 403 } }, '/articles/1').status, 403)
+    assert.doesNotMatch(requestError({ code: 'ERR_NETWORK' }, '/articles').message, /代码和输入/)
   })
   clearCsrf(); scenario = 'html'
   await assert.rejects(getData('/auth/csrf'), e => e instanceof ApiError && /API/.test(e.message))
