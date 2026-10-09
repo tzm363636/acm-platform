@@ -74,3 +74,23 @@ npm run build
 5. 管理员按原流程发布或下架专用验收文章后，刷新公开列表核对可见性和统计；不要改动现有业务文章。
 
 云端发布记录将在实际发布后补充，不能把本地测试当作公网通过。
+
+## 云端发布与验收（2026-10-09）
+
+- GitHub `main` 已依次推送后端 `2d8f550` 与前端 `a5aa018`。Render 后端 `dep-db47ps3bc2fs73bfr6t0` 和前端 `dep-db47uan40ujc73e6s29g` 均实际显示 Live，先确认后端新接口后再发布前端。
+- 后端直连与前端同源 `/api/articles?size=6&includeOptions=true&sort=published` 均实际返回 HTTP 200，包含分页及 options；本次观测分别约 9.1 秒，不作为性能改善百分比。能力接口 database/login 为 true、realJudge 为 false。
+- 16 项公网只读/匿名接口检查通过：两页文章 ID 无重复、范围与全站统计、摘要不含完整正文、详情与时间字段、无结果时全站统计不变、搜索/分类/标签/排序组合、非法排序 400、不存在 404、匿名身份、私人/管理员接口 401、CSRF 与 Secure/HttpOnly/SameSite=Lax/Path=/、无 CSRF 写入 403、同源匿名 POST 401、OJ 公开题库可读。当前云端为 8 篇公开文章、4 个有公开文章的分类；这些是实际读取值，不是固定示例。
+- 公网浏览器实际验证排序、第二页 7–8/8、打开文章及返回。返回后 URL 的 `more=1&sort=published&page=2` 和 scrollY 87.33 px 均恢复。详情显示发布时间、更新时间及北京时间标识，正文与目录可见。
+- 公网页面实际检查 1440×1000、390×844、320×800，根元素 clientWidth/scrollWidth 分别为 1425/1425、375/375、305/305，无整页横向溢出。截图为 `.qa/content-screenshots/public-desktop.jpg`、`public-mobile-390.jpg`、`public-mobile-320.jpg`。
+- **仍有已观测的网络限制**：浏览器一次排序请求在 45 秒超时，页面保留并标记旧内容和旧统计，手动重试后成功，再次翻页与详情返回成功。不能宣称所有偶发超时已消除。Render 历史日志实际记录一次约 54 秒的后端启动和之后正常关闭，但无法将本次每个超时都归因于冷启动。没有关闭 TLS、无限延长超时或自动重放写请求。
+- 本轮没有新增或执行 Flyway 迁移，没有导入生产测试数据，没有修改用户密码、现有文章或评测记录。Aiven 通过部署后的数据库文章查询实际验证可读，沿用既有证书校验配置。
+- USER/ADMIN 完整登录、写作、审核和草稿流程本轮仍以自动化回归为依据；没有在公网额外执行投稿、审核、改密或真实判题。超过 100 篇与故障注入仅在隔离测试数据中验证。
+
+## 修改文件清单
+
+- 后端：`backend/pom.xml`、`backend/src/main/java/com/acm/platform/controller/DataController.java`、`backend/src/main/java/com/acm/platform/db/PlatformRepository.java`。
+- 后端测试：`backend/src/test/java/com/acm/platform/db/PublicArticleQueryTest.java`、`PublicArticleBrowserFixture.java`。
+- 前端数据层：`frontend/src/api/database.ts`、`errors.ts`、`frontend/src/composables/publicArticles.ts`、`frontend/src/data/articles.ts`。
+- 前端页面与样式：`frontend/src/views/CodeSharingView.vue`、`ArticleView.vue`、`frontend/src/styles/code-sharing.css`、`article.css`。
+- 前端验证：`frontend/package.json`、`frontend/scripts/test-content.mjs`、`test-api.mjs`。
+- 本交付说明：`CONTENT-VALIDATION.md`。截图、临时公网验证脚本和认证诊断均在被忽略的 `.qa`，不进入 Git。
